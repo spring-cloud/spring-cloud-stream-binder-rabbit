@@ -83,7 +83,7 @@ import org.springframework.util.StringUtils;
  */
 public class RabbitMessageChannelBinder
 		extends AbstractMessageChannelBinder<ExtendedConsumerProperties<RabbitConsumerProperties>,
-		ExtendedProducerProperties<RabbitProducerProperties>>
+		ExtendedProducerProperties<RabbitProducerProperties>, Queue>
 		implements ExtendedPropertiesBinder<MessageChannel, RabbitConsumerProperties, RabbitProducerProperties> {
 
 	private static final AnonymousQueue.Base64UrlNamingStrategy ANONYMOUS_GROUP_NAME_GENERATOR
@@ -196,7 +196,7 @@ public class RabbitMessageChannelBinder
 	}
 
 	@Override
-	protected MessageProducer createConsumerEndpoint(String name, String group, Object queue,
+	protected MessageProducer createConsumerEndpoint(String name, String group, Queue destination,
 			ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
 
 		DirectChannel convertingBridgeChannel = new DirectChannel();
@@ -219,15 +219,11 @@ public class RabbitMessageChannelBinder
 		listenerContainer.setPrefetchCount(properties.getExtension().getPrefetch());
 		listenerContainer.setRecoveryInterval(properties.getExtension().getRecoveryInterval());
 		listenerContainer.setTxSize(properties.getExtension().getTxSize());
-		listenerContainer.setTaskExecutor(new SimpleAsyncTaskExecutor(((Queue) queue).getName() + "-"));
-		listenerContainer.setQueues((Queue) queue);
-		int maxAttempts = properties.getMaxAttempts();
-		if (maxAttempts > 1 || properties.getExtension().isRepublishToDlq()) {
+		listenerContainer.setTaskExecutor(new SimpleAsyncTaskExecutor(destination.getName() + "-"));
+		listenerContainer.setQueues((Queue) destination);
+		if (properties.getMaxAttempts() > 1 || properties.getExtension().isRepublishToDlq()) {
 			RetryOperationsInterceptor retryInterceptor = RetryInterceptorBuilder.stateless()
-					.maxAttempts(maxAttempts)
-					.backOffOptions(properties.getBackOffInitialInterval(),
-							properties.getBackOffMultiplier(),
-							properties.getBackOffMaxInterval())
+					.retryOperations(buildRetryTemplate(properties))
 					.recoverer(determineRecoverer(baseQueueName, properties.getExtension().getPrefix(),
 							properties.getExtension().isRepublishToDlq()))
 					.build();
@@ -255,7 +251,7 @@ public class RabbitMessageChannelBinder
 	}
 
 	@Override
-	protected Object createConsumerDestinationIfNecessary(String name, String group,
+	protected Queue createConsumerDestinationIfNecessary(String name, String group,
 			ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
 		boolean anonymous = !StringUtils.hasText(group);
 		String baseQueueName = anonymous ? groupedName(name, ANONYMOUS_GROUP_NAME_GENERATOR.generateName())
