@@ -7,6 +7,7 @@ However, if the problem is a permanent issue, that could cause an infinite loop.
 The following `spring-boot` application is an example of how to route those messages back to the original queue, but moves them to a third "parking lot" queue after three attempts.
 The second example utilizes the https://www.rabbitmq.com/blog/2015/04/16/scheduling-messages-with-rabbitmq/[RabbitMQ Delayed Message Exchange] to introduce a delay to the requeued message.
 In this example, the delay increases for each attempt.
+These examples use a `@RabbitListener` to receive messages from the DLQ, you could also use `RabbitTemplate.receive()` in a batch process.
 The examples assume the original destination is `so8400in` and the consumer group is `so8400`.
 
 [source, java]
