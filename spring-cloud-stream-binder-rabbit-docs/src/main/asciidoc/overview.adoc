@@ -38,7 +38,7 @@ For each consumer group, a `Queue` will be bound to that `TopicExchange`.
 Each consumer instance have a corresponding RabbitMQ `Consumer` instance for its group's `Queue`.
 For partitioned producers/consumers the queues are suffixed with the partition index and use the partition index as routing key.
 
-Using the `autBindDlq` option, you can optionally configure the binder to create and configure dead-letter queues (DLQs) (and a dead-letter exchange `DLX`).
+Using the `autoBindDlq` option, you can optionally configure the binder to create and configure dead-letter queues (DLQs) (and a dead-letter exchange `DLX`).
 The dead letter queue has the name of the destination, appended with `.dlq`.
 If retry is enabled (`maxAttempts > 1`) failed messages will be delivered to the DLQ.
 If retry is disabled (`maxAttempts = 1`), you should set `requeueRejected` to false so the failed message will be routed to the DLQ, instead of being requeued.
