@@ -36,7 +36,8 @@ public class RabbitConsumerProperties {
 
 	private int prefetch = 1;
 
-	private String[] requestHeaderPatterns = new String[] {"STANDARD_REQUEST_HEADERS", "*"};
+	private String[] requestHeaderPatterns = new String[] { "STANDARD_REQUEST_HEADERS",
+			"*" };
 
 	private int txSize = 1;
 
@@ -48,15 +49,17 @@ public class RabbitConsumerProperties {
 
 	private boolean requeueRejected = false;
 
-	private String[] replyHeaderPatterns = new String[] {"STANDARD_REPLY_HEADERS", "*"};
+	private String[] replyHeaderPatterns = new String[] { "STANDARD_REPLY_HEADERS", "*" };
 
 	private long recoveryInterval = 5000;
+
+	private boolean useHashBindingKey = true;
 
 	public String getPrefix() {
 		return prefix;
 	}
 
-	public void setPrefix(String prefix) {
+	public void setPrefix(final String prefix) {
 		this.prefix = prefix;
 	}
 
@@ -64,7 +67,7 @@ public class RabbitConsumerProperties {
 		return transacted;
 	}
 
-	public void setTransacted(boolean transacted) {
+	public void setTransacted(final boolean transacted) {
 		this.transacted = transacted;
 	}
 
@@ -72,7 +75,7 @@ public class RabbitConsumerProperties {
 		return acknowledgeMode;
 	}
 
-	public void setAcknowledgeMode(AcknowledgeMode acknowledgeMode) {
+	public void setAcknowledgeMode(final AcknowledgeMode acknowledgeMode) {
 		Assert.notNull("Acknowledge mode cannot be null");
 		this.acknowledgeMode = acknowledgeMode;
 	}
@@ -82,7 +85,7 @@ public class RabbitConsumerProperties {
 		return maxConcurrency;
 	}
 
-	public void setMaxConcurrency(int maxConcurrency) {
+	public void setMaxConcurrency(final int maxConcurrency) {
 		this.maxConcurrency = maxConcurrency;
 	}
 
@@ -91,7 +94,7 @@ public class RabbitConsumerProperties {
 		return prefetch;
 	}
 
-	public void setPrefetch(int prefetch) {
+	public void setPrefetch(final int prefetch) {
 		this.prefetch = prefetch;
 	}
 
@@ -99,7 +102,7 @@ public class RabbitConsumerProperties {
 		return requestHeaderPatterns;
 	}
 
-	public void setRequestHeaderPatterns(String[] requestHeaderPatterns) {
+	public void setRequestHeaderPatterns(final String[] requestHeaderPatterns) {
 		this.requestHeaderPatterns = requestHeaderPatterns;
 	}
 
@@ -108,7 +111,7 @@ public class RabbitConsumerProperties {
 		return txSize;
 	}
 
-	public void setTxSize(int txSize) {
+	public void setTxSize(final int txSize) {
 		this.txSize = txSize;
 	}
 
@@ -116,7 +119,7 @@ public class RabbitConsumerProperties {
 		return autoBindDlq;
 	}
 
-	public void setAutoBindDlq(boolean autoBindDlq) {
+	public void setAutoBindDlq(final boolean autoBindDlq) {
 		this.autoBindDlq = autoBindDlq;
 	}
 
@@ -124,7 +127,7 @@ public class RabbitConsumerProperties {
 		return durableSubscription;
 	}
 
-	public void setDurableSubscription(boolean durableSubscription) {
+	public void setDurableSubscription(final boolean durableSubscription) {
 		this.durableSubscription = durableSubscription;
 	}
 
@@ -132,7 +135,7 @@ public class RabbitConsumerProperties {
 		return republishToDlq;
 	}
 
-	public void setRepublishToDlq(boolean republishToDlq) {
+	public void setRepublishToDlq(final boolean republishToDlq) {
 		this.republishToDlq = republishToDlq;
 	}
 
@@ -140,7 +143,7 @@ public class RabbitConsumerProperties {
 		return requeueRejected;
 	}
 
-	public void setRequeueRejected(boolean requeueRejected) {
+	public void setRequeueRejected(final boolean requeueRejected) {
 		this.requeueRejected = requeueRejected;
 	}
 
@@ -148,7 +151,7 @@ public class RabbitConsumerProperties {
 		return replyHeaderPatterns;
 	}
 
-	public void setReplyHeaderPatterns(String[] replyHeaderPatterns) {
+	public void setReplyHeaderPatterns(final String[] replyHeaderPatterns) {
 		this.replyHeaderPatterns = replyHeaderPatterns;
 	}
 
@@ -156,7 +159,15 @@ public class RabbitConsumerProperties {
 		return recoveryInterval;
 	}
 
-	public void setRecoveryInterval(long recoveryInterval) {
+	public void setRecoveryInterval(final long recoveryInterval) {
 		this.recoveryInterval = recoveryInterval;
+	}
+
+	public void setUseHashBindingKey(final boolean useHashBindingKey) {
+		this.useHashBindingKey = useHashBindingKey;
+	}
+
+	public boolean isUseHashBindingKey() {
+		return useHashBindingKey;
 	}
 }
