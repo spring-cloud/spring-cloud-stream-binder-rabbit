@@ -293,7 +293,8 @@ public class RabbitMessageChannelBinder
 			declareBinding(queue.getName(), BindingBuilder.bind(queue).to(exchange).with(bindingKey));
 		}
 		else {
-			declareBinding(queue.getName(), BindingBuilder.bind(queue).to(exchange).with("#"));
+			String routingKey = properties.getExtension().getRoutingKey();
+			declareBinding(queue.getName(), BindingBuilder.bind(queue).to(exchange).with(routingKey));
 		}
 		if (durable) {
 			autoBindDLQ(applyPrefix(properties.getExtension().getPrefix(), baseQueueName), queueName,
