@@ -52,6 +52,8 @@ public class RabbitConsumerProperties {
 
 	private long recoveryInterval = 5000;
 
+	private boolean useHashBindingKey = true;
+
 	public String getPrefix() {
 		return prefix;
 	}
@@ -158,5 +160,13 @@ public class RabbitConsumerProperties {
 
 	public void setRecoveryInterval(long recoveryInterval) {
 		this.recoveryInterval = recoveryInterval;
+	}
+
+	public void setUseHashBindingKey(boolean useHashBindingKey) {
+		this.useHashBindingKey = useHashBindingKey;
+	}
+
+	public boolean isUseHashBindingKey() {
+		return useHashBindingKey;
 	}
 }
