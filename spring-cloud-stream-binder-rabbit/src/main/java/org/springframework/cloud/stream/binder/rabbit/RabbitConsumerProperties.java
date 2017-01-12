@@ -52,6 +52,8 @@ public class RabbitConsumerProperties {
 
 	private long recoveryInterval = 5000;
 
+	private String routingKey = "#";
+
 	public String getPrefix() {
 		return prefix;
 	}
@@ -159,4 +161,13 @@ public class RabbitConsumerProperties {
 	public void setRecoveryInterval(long recoveryInterval) {
 		this.recoveryInterval = recoveryInterval;
 	}
+
+	public void setRoutingKey(String routingKey) {
+		this.routingKey = routingKey;
+	}
+
+	public String getRoutingKey() {
+		return routingKey;
+	}
+
 }
