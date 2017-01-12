@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2016 the original author or authors.
+ * Copyright 2013-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,10 +35,15 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 import org.springframework.amqp.core.AcknowledgeMode;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
+import org.springframework.amqp.core.Exchange;
+import org.springframework.amqp.core.ExchangeTypes;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
+import org.springframework.amqp.rabbit.core.RabbitManagementTemplate;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.support.AmqpHeaders;
@@ -82,7 +87,7 @@ public class RabbitBinderTests extends
 	public static final String TEST_PREFIX = "bindertest.";
 
 	@Rule
-	public RabbitTestSupport rabbitAvailableRule = new RabbitTestSupport();
+	public RabbitTestSupport rabbitAvailableRule = new RabbitTestSupport(true);
 
 	@Override
 	protected RabbitTestBinder getBinder() {
@@ -186,12 +191,80 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
+	public void testConsumerPropertiesWithUserInfrastructureNoBind() throws Exception {
+		RabbitAdmin admin = new RabbitAdmin(this.rabbitAvailableRule.getResource());
+		Queue queue = new Queue("propsUser1.infra");
+		admin.declareQueue(queue);
+		DirectExchange exchange = new DirectExchange("propsUser1");
+		admin.declareExchange(exchange);
+		admin.declareBinding(BindingBuilder.bind(queue).to(exchange).with("foo"));
+
+		RabbitTestBinder binder = getBinder();
+		ExtendedConsumerProperties<RabbitConsumerProperties> properties = createConsumerProperties();
+		properties.getExtension().setDeclareExchange(false);
+		properties.getExtension().setBindQueue(false);
+
+		Binding<MessageChannel> consumerBinding = binder.bindConsumer("propsUser1", "infra",
+				createBindableChannel("input", new BindingProperties()), properties);
+		Lifecycle endpoint = extractEndpoint(consumerBinding);
+		SimpleMessageListenerContainer container = TestUtils.getPropertyValue(endpoint, "messageListenerContainer",
+				SimpleMessageListenerContainer.class);
+		assertThat(container.isRunning()).isTrue();
+		consumerBinding.unbind();
+		assertThat(container.isRunning()).isFalse();
+		RabbitManagementTemplate rmt = new RabbitManagementTemplate();
+		List<org.springframework.amqp.core.Binding> bindings = rmt.getBindingsForExchange("/", exchange.getName());
+		assertThat(bindings.size()).isEqualTo(1);
+	}
+
+	@Test
+	public void testConsumerPropertiesWithUserInfrastructureCustomExchangeAndRK() throws Exception {
+		RabbitTestBinder binder = getBinder();
+		ExtendedConsumerProperties<RabbitConsumerProperties> properties = createConsumerProperties();
+		properties.getExtension().setExchangeType(ExchangeTypes.DIRECT);
+		properties.getExtension().setExchangeRoutingKey("foo");
+//		properties.getExtension().setDelayedExchange(true); // requires delayed message exchange plugin; tested locally
+
+		Binding<MessageChannel> consumerBinding = binder.bindConsumer("propsUser2", "infra",
+				createBindableChannel("input", new BindingProperties()), properties);
+		Lifecycle endpoint = extractEndpoint(consumerBinding);
+		SimpleMessageListenerContainer container = TestUtils.getPropertyValue(endpoint, "messageListenerContainer",
+				SimpleMessageListenerContainer.class);
+		assertThat(container.isRunning()).isTrue();
+		consumerBinding.unbind();
+		assertThat(container.isRunning()).isFalse();
+		RabbitManagementTemplate rmt = new RabbitManagementTemplate();
+		List<org.springframework.amqp.core.Binding> bindings = rmt.getBindingsForExchange("/", "propsUser2");
+		int n = 0;
+		while (n++ < 100 && bindings == null || bindings.size() < 1) {
+			Thread.sleep(100);
+			bindings = rmt.getBindingsForExchange("/", "propsUser2");
+		}
+		assertThat(bindings.size()).isEqualTo(1);
+		assertThat(bindings.get(0).getExchange()).isEqualTo("propsUser2");
+		assertThat(bindings.get(0).getDestination()).isEqualTo("propsUser2.infra");
+		assertThat(bindings.get(0).getRoutingKey()).isEqualTo("foo");
+
+//		// TODO: AMQP-696
+//		// Exchange exchange = rmt.getExchange("propsUser2");
+//		ExchangeInfo ei = rmt.getClient().getExchange("/", "propsUser2"); // requires delayed message exchange plugin
+//		assertThat(ei.getType()).isEqualTo("x-delayed-message");
+//		assertThat(ei.getArguments().get("x-delayed-type")).isEqualTo("direct");
+
+		Exchange exchange = rmt.getExchange("propsUser2");
+		while (n++ < 100 && exchange == null) {
+			Thread.sleep(100);
+			exchange = rmt.getExchange("propsUser2");
+		}
+		assertThat(exchange).isInstanceOf(DirectExchange.class);
+	}
+
+	@Test
 	public void testProducerProperties() throws Exception {
 		RabbitTestBinder binder = getBinder();
 		Binding<MessageChannel> producerBinding = binder.bindProducer("props.0",
 				createBindableChannel("input", new BindingProperties()),
 				createProducerProperties());
-		@SuppressWarnings("unchecked")
 		Lifecycle endpoint = extractEndpoint(producerBinding);
 		MessageDeliveryMode mode = TestUtils.getPropertyValue(endpoint, "defaultDeliveryMode",
 				MessageDeliveryMode.class);
@@ -663,7 +736,6 @@ public class RabbitBinderTests extends
 	@SuppressWarnings("unchecked")
 	@Test
 	public void testBatchingAndCompression() throws Exception {
-		RabbitTemplate template = new RabbitTemplate(this.rabbitAvailableRule.getResource());
 		RabbitTestBinder binder = getBinder();
 		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setDeliveryMode(MessageDeliveryMode.NON_PERSISTENT);
