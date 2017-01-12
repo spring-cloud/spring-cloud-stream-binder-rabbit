@@ -200,13 +200,11 @@ compress::
 Default: `false`.
 declareExchange::
   Whether to declare the exchange for the destination.
-  Only applies if `requiredGroups` are provided.
 +
 Default: `true`.
 delayedExchange::
   Whether to declare the exchange as a `Delayed Message Exchange` - requires the delayed message exchange plugin on the broker.
   The `x-delayed-type` argument is set to the `exchangeType`.
-  Only applies if `requiredGroups` are provided.
 +
 Default: `false`.
 deliveryMode::
@@ -221,7 +219,6 @@ exchangeRoutingKey::
 Default: `#`.
 exchangeType::
   The exchange type; `direct`, `fanout` or `topic` for non-partitioned destinations; `direct` or `topic` for partitioned destinations.
-  Only applies if `requiredGroups` are provided.
 +
 Default: `topic`.
 prefix::
