@@ -104,6 +104,18 @@ bindQueue::
   Whether to bind the queue to the destination exchange; set to `false` if you have set up your own infrastructure and have previously created/bound the queue.
 +
 Default: `true`.
+deadLetterQueueName::
+  name of the DLQ
++
+Default: `prefix+destination.dlq`
+deadLetterExchange::
+  a DLX to assign to the queue; if autoBindDlq is true
++
+Default: 'prefix+DLX'
+deadLetterRoutingKey::
+  a dead letter routing key to assign to the queue; if autoBindDlq is true
++
+Default: `destination`
 declareExchange::
   Whether to declare the exchange for the destination.
 +
@@ -113,6 +125,34 @@ delayedExchange::
   The `x-delayed-type` argument is set to the `exchangeType`.
 +
 Default: `false`.
+dlqDeadLetterExchange::
+  if a DLQ is declared, a DLX to assign to that queue
++
+Default: `none`
+dlqDeadLetterRoutingKey::
+  if a DLQ is declared, a dead letter routing key to assign to that queue; default none
++
+Default: `none`
+dlqExpires::
+  how long before an unused dead letter queue is deleted (ms)
++
+Default: `no expiration`
+dlqMaxLength::
+  maximum number of messages in the dead letter queue
++
+Default: `no limit`
+dlqMaxLengthBytes::
+  maximum number of total bytes in the dead letter queue from all messages
++
+Default: `no limit`
+dlqMaxPriority::
+  maximum priority of messages in the dead letter queue (0-255)
++
+Default: `none`
+dlqTtl::
+  default time to live to apply to the dead letter queue when declared (ms)
++
+Default: `no limit`
 durableSubscription::
   Whether subscription should be durable.
 Only effective if `group` is also set.
@@ -127,8 +167,26 @@ exchangeType::
   The exchange type; `direct`, `fanout` or `topic` for non-partitioned destinations; `direct` or `topic` for partitioned destinations.
 +
 Default: `topic`.
+expires::
+  how long before an unused queue is deleted (ms)
++
+Default: `no expiration`
 maxConcurrency::
-  Default: `1`.
+  the maximum number of consumers
++
+Default: `1`.
+maxLength::
+  maximum number of messages in the queue
++
+Default: `no limit`
+maxLengthBytes::
+  maximum number of total bytes in the queue from all messages
++
+Default: `no limit`
+maxPriority::
+  maximum priority of messages in the queue (0-255)
++
+Default:: `none`
 prefetch::
   Prefetch count.
 +
@@ -163,6 +221,10 @@ transacted::
   Whether to use transacted channels.
 +
 Default: `false`.
+ttl::
+default time to live to apply to the queue when declared (ms)
++
+Default: `no limit`
 txSize::
   The number of deliveries between acks.
 +
@@ -198,6 +260,21 @@ compress::
   Whether data should be compressed when sent.
 +
 Default: `false`.
+deadLetterQueueName::
+  name of the DLQ
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `prefix+destination.dlq`
+deadLetterExchange::
+  a DLX to assign to the queue; if autoBindDlq is true
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: 'prefix+DLX'
+deadLetterRoutingKey::
+  a dead letter routing key to assign to the queue; if autoBindDlq is true
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `destination`
 declareExchange::
   Whether to declare the exchange for the destination.
 +
@@ -215,16 +292,71 @@ deliveryMode::
   Delivery mode.
 +
 Default: `PERSISTENT`.
+dlqDeadLetterExchange::
+  if a DLQ is declared, a DLX to assign to that queue
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `none`
+dlqDeadLetterRoutingKey::
+  if a DLQ is declared, a dead letter routing key to assign to that queue; default none
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `none`
+dlqExpires::
+  how long before an unused dead letter queue is deleted (ms)
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `no expiration`
+dlqMaxLength::
+  maximum number of messages in the dead letter queue
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `no limit`
+dlqMaxLengthBytes::
+  maximum number of total bytes in the dead letter queue from all messages
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `no limit`
+dlqMaxPriority::
+  maximum priority of messages in the dead letter queue (0-255)
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `none`
+dlqTtl::
+  default time to live to apply to the dead letter queue when declared (ms)
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `no limit`
 exchangeRoutingKey::
   The routing key with which to bind the queue to the exchange (if `bindQueue` is `true`).
   Only applies to non-partitioned destinations.
-  Only applies if `requiredGroups` are provided.
+  Only applies if `requiredGroups` are provided and then only to those groups.
 +
 Default: `#`.
 exchangeType::
   The exchange type; `direct`, `fanout` or `topic` for non-partitioned destinations; `direct` or `topic` for partitioned destinations.
 +
 Default: `topic`.
+expires::
+  how long before an unused queue is deleted (ms)
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `no expiration`
+maxLength::
+  maximum number of messages in the queue
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `no limit`
+maxLengthBytes::
+  maximum number of total bytes in the queue from all messages
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `no limit`
+maxPriority::
+  maximum priority of messages in the queue (0-255)
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default:: `none`
 prefix::
   A prefix to be added to the name of the `destination` exchange.
 +
@@ -245,6 +377,11 @@ transacted::
   Whether to use transacted channels.
 +
 Default: `false`.
+ttl::
+  default time to live to apply to the queue when declared (ms)
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: `no limit`
 
 [NOTE]
 ====
