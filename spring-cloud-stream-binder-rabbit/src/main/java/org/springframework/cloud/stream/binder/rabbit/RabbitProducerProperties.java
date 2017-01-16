@@ -48,6 +48,16 @@ public class RabbitProducerProperties extends RabbitCommonProperties {
 
 	private String[] replyHeaderPatterns = new String[] {"STANDARD_REPLY_HEADERS", "*"};
 
+	/**
+	 * When using a delayed message exchange, a SpEL expression to determine the delay to apply to messages
+	 */
+	private String delayExpression;
+
+	/**
+	 * A custom routing key when publishing messages; default is the destination name; suffixed by "-partition" when partitioned
+	 */
+	private String routingKeyExpression;
+
 	public String getPrefix() {
 		return prefix;
 	}
@@ -137,6 +147,22 @@ public class RabbitProducerProperties extends RabbitCommonProperties {
 
 	public void setTransacted(boolean transacted) {
 		this.transacted = transacted;
+	}
+
+	public String getDelayExpression() {
+		return this.delayExpression;
+	}
+
+	public void setDelayExpression(String delayExpression) {
+		this.delayExpression = delayExpression;
+	}
+
+	public String getRoutingKeyExpression() {
+		return this.routingKeyExpression;
+	}
+
+	public void setRoutingKeyExpression(String routingKeyExpression) {
+		this.routingKeyExpression = routingKeyExpression;
 	}
 
 }

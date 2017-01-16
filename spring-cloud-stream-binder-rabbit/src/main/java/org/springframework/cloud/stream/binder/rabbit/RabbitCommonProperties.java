@@ -46,9 +46,9 @@ public abstract class RabbitCommonProperties {
 	private boolean bindQueue = true;
 
 	/**
-	 * The routing key to bind
+	 * The routing key to bind (default # for non-partitioned, destination-instanceIndex for partitioned)
 	 */
-	private String exchangeRoutingKey = "#";
+	private String bindingRoutingKey;
 
 	public String getExchangeType() {
 		return this.exchangeType;
@@ -82,12 +82,12 @@ public abstract class RabbitCommonProperties {
 		this.bindQueue = bindQueue;
 	}
 
-	public String getExchangeRoutingKey() {
-		return this.exchangeRoutingKey;
+	public String getBindingRoutingKey() {
+		return this.bindingRoutingKey;
 	}
 
-	public void setExchangeRoutingKey(String routingKey) {
-		this.exchangeRoutingKey = routingKey;
+	public void setBindingRoutingKey(String routingKey) {
+		this.bindingRoutingKey = routingKey;
 	}
 
 }

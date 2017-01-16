@@ -222,7 +222,7 @@ public class RabbitBinderTests extends
 		RabbitTestBinder binder = getBinder();
 		ExtendedConsumerProperties<RabbitConsumerProperties> properties = createConsumerProperties();
 		properties.getExtension().setExchangeType(ExchangeTypes.DIRECT);
-		properties.getExtension().setExchangeRoutingKey("foo");
+		properties.getExtension().setBindingRoutingKey("foo");
 //		properties.getExtension().setDelayedExchange(true); // requires delayed message exchange plugin; tested locally
 
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("propsUser2", "infra",
@@ -287,18 +287,28 @@ public class RabbitBinderTests extends
 		producerProperties.setPartitionSelectorClass(TestPartitionSelectorClass.class);
 		producerProperties.setPartitionCount(1);
 		producerProperties.getExtension().setTransacted(true);
+		producerProperties.getExtension().setDelayExpression("42");
+		producerProperties.setRequiredGroups("prodPropsRequired");
 
 		BindingProperties producerBindingProperties = createProducerBindingProperties(producerProperties);
-		producerBinding = binder.bindProducer("props.0", createBindableChannel("output", producerBindingProperties),
+		DirectChannel channel = createBindableChannel("output", producerBindingProperties);
+		producerBinding = binder.bindProducer("props.0", channel,
 				producerProperties);
 		endpoint = extractEndpoint(producerBinding);
 		assertThat(TestUtils.getPropertyValue(endpoint, "routingKeyExpression", SpelExpression.class)
 				.getExpressionString()).isEqualTo("'props.0-' + headers['partition']");
+		assertThat(TestUtils.getPropertyValue(endpoint, "delayExpression", SpelExpression.class)
+				.getExpressionString()).isEqualTo("42");
 		mode = TestUtils.getPropertyValue(endpoint, "defaultDeliveryMode", MessageDeliveryMode.class);
 		assertThat(mode).isEqualTo(MessageDeliveryMode.NON_PERSISTENT);
 		assertThat(TestUtils.getPropertyValue(endpoint, "amqpTemplate.transactional", Boolean.class))
 				.isTrue();
 		verifyFooRequestProducer(endpoint);
+		channel.send(new GenericMessage<>("foo"));
+		org.springframework.amqp.core.Message received = new RabbitTemplate(this.rabbitAvailableRule.getResource())
+				.receive("foo.props.0.prodPropsRequired-0", 10_000);
+		assertThat(received).isNotNull();
+		assertThat(received.getMessageProperties().getReceivedDelay()).isEqualTo(42);
 
 		producerBinding.unbind();
 		assertThat(endpoint.isRunning()).isFalse();
@@ -982,20 +992,22 @@ public class RabbitBinderTests extends
 		};
 	}
 
-	private static class TestPartitionKeyExtractorClass implements PartitionKeyExtractorStrategy {
+	public static class TestPartitionKeyExtractorClass implements PartitionKeyExtractorStrategy {
 
 		@Override
 		public Object extractKey(Message<?> message) {
-			return null;
+			return 0;
 		}
+
 	}
 
-	private static class TestPartitionSelectorClass implements PartitionSelectorStrategy {
+	public static class TestPartitionSelectorClass implements PartitionSelectorStrategy {
 
 		@Override
 		public int selectPartition(Object key, int partitionCount) {
 			return 0;
 		}
+
 	}
 
 }

@@ -349,23 +349,37 @@ public class RabbitMessageChannelBinder
 		String destination = StringUtils.isEmpty(prefix) ? exchangeName : exchangeName.substring(prefix.length());
 		final AmqpOutboundEndpoint endpoint = new AmqpOutboundEndpoint(buildRabbitTemplate(properties.getExtension()));
 		endpoint.setExchangeName(exchange.getName());
+		RabbitProducerProperties extendedProperties = properties.getExtension();
+		String routingKeyExpression = extendedProperties.getRoutingKeyExpression();
 		if (!properties.isPartitioned()) {
-			endpoint.setRoutingKey(destination);
+			if (routingKeyExpression == null) {
+				endpoint.setRoutingKey(destination);
+			}
+			else {
+				endpoint.setRoutingKeyExpressionString(routingKeyExpression);
+			}
 		}
 		else {
-			endpoint.setRoutingKeyExpression(EXPRESSION_PARSER.parseExpression(buildPartitionRoutingExpression(
-					destination)));
+			if (routingKeyExpression == null) {
+				endpoint.setRoutingKeyExpressionString(buildPartitionRoutingExpression(destination));
+			}
+			else {
+				endpoint.setRoutingKeyExpressionString(buildPartitionRoutingExpression(routingKeyExpression));
+			}
+		}
+		if (extendedProperties.getDelayExpression() != null) {
+			endpoint.setDelayExpressionString(extendedProperties.getDelayExpression());
 		}
 		for (String requiredGroupName : properties.getRequiredGroups()) {
 			String baseQueueName = exchangeName + "." + requiredGroupName;
 			if (!properties.isPartitioned()) {
 				Queue queue = new Queue(baseQueueName, true, false, false,
-						queueArgs(baseQueueName, prefix, properties.getExtension().isAutoBindDlq()));
+						queueArgs(baseQueueName, prefix, extendedProperties.isAutoBindDlq()));
 				declareQueue(baseQueueName, queue);
-				autoBindDLQ(baseQueueName, baseQueueName, properties.getExtension().getPrefix(),
-						properties.getExtension().isAutoBindDlq());
-				if (properties.getExtension().isBindQueue()) {
-					notPartitionedBinding(exchange, queue, properties.getExtension());
+				autoBindDLQ(baseQueueName, baseQueueName, extendedProperties.getPrefix(),
+						extendedProperties.isAutoBindDlq());
+				if (extendedProperties.isBindQueue()) {
+					notPartitionedBinding(exchange, queue, extendedProperties);
 				}
 			}
 			else {
@@ -374,22 +388,22 @@ public class RabbitMessageChannelBinder
 					String partitionSuffix = "-" + i;
 					String partitionQueueName = baseQueueName + partitionSuffix;
 					Queue queue = new Queue(partitionQueueName, true, false, false,
-							queueArgs(partitionQueueName, properties.getExtension().getPrefix(),
-									properties.getExtension().isAutoBindDlq()));
+							queueArgs(partitionQueueName, extendedProperties.getPrefix(),
+									extendedProperties.isAutoBindDlq()));
 					declareQueue(queue.getName(), queue);
-					autoBindDLQ(baseQueueName, baseQueueName + partitionSuffix, properties.getExtension().getPrefix(),
-							properties.getExtension().isAutoBindDlq());
-					if (properties.getExtension().isBindQueue()) {
-						partitionedBinding(exchange, queue, destination + partitionSuffix);
+					autoBindDLQ(baseQueueName, baseQueueName + partitionSuffix, extendedProperties.getPrefix(),
+							extendedProperties.isAutoBindDlq());
+					if (extendedProperties.isBindQueue()) {
+						partitionedBinding(destination, exchange, queue, extendedProperties, i);
 					}
 				}
 			}
 		}
 		DefaultAmqpHeaderMapper mapper = DefaultAmqpHeaderMapper.outboundMapper();
-		mapper.setRequestHeaderNames(properties.getExtension().getRequestHeaderPatterns());
-		mapper.setReplyHeaderNames(properties.getExtension().getReplyHeaderPatterns());
+		mapper.setRequestHeaderNames(extendedProperties.getRequestHeaderPatterns());
+		mapper.setReplyHeaderNames(extendedProperties.getReplyHeaderPatterns());
 		endpoint.setHeaderMapper(mapper);
-		endpoint.setDefaultDeliveryMode(properties.getExtension().getDeliveryMode());
+		endpoint.setDefaultDeliveryMode(extendedProperties.getDeliveryMode());
 		endpoint.setBeanFactory(this.getBeanFactory());
 		endpoint.afterPropertiesSet();
 		return endpoint;
@@ -488,15 +502,20 @@ public class RabbitMessageChannelBinder
 	private void declareConsumerBindings(String name, ExtendedConsumerProperties<RabbitConsumerProperties> properties,
 			Exchange exchange, boolean partitioned, Queue queue) {
 		if (partitioned) {
-			String bindingKey = String.format("%s-%d", name, properties.getInstanceIndex());
-			partitionedBinding(exchange, queue, bindingKey);
+			partitionedBinding(name, exchange, queue, properties.getExtension(), properties.getInstanceIndex());
 		}
 		else {
 			notPartitionedBinding(exchange, queue, properties.getExtension());
 		}
 	}
 
-	private void partitionedBinding(Exchange exchange, Queue queue, String bindingKey) {
+	private void partitionedBinding(String destination, Exchange exchange, Queue queue,
+			RabbitCommonProperties extendedProperties, int index) {
+		String bindingKey = extendedProperties.getBindingRoutingKey();
+		if (bindingKey == null) {
+			bindingKey = destination;
+		}
+		bindingKey += "-" + index;
 		if (exchange instanceof TopicExchange) {
 			declareBinding(queue.getName(), BindingBuilder.bind(queue)
 								.to((TopicExchange) exchange)
@@ -516,15 +535,19 @@ public class RabbitMessageChannelBinder
 	}
 
 	private void notPartitionedBinding(Exchange exchange, Queue queue, RabbitCommonProperties extendedProperties) {
+		String routingKey = extendedProperties.getBindingRoutingKey();
+		if (routingKey == null) {
+			routingKey = "#";
+		}
 		if (exchange instanceof TopicExchange) {
 			declareBinding(queue.getName(), BindingBuilder.bind(queue)
 								.to((TopicExchange) exchange)
-								.with("#"));
+								.with(routingKey));
 		}
 		else if (exchange instanceof DirectExchange) {
 			declareBinding(queue.getName(), BindingBuilder.bind(queue)
 					.to((DirectExchange) exchange)
-					.with(extendedProperties.getExchangeRoutingKey()));
+					.with(routingKey));
 		}
 		else if (exchange instanceof FanoutExchange) {
 			declareBinding(queue.getName(), BindingBuilder.bind(queue)
