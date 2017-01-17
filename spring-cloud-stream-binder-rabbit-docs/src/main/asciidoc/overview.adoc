@@ -399,11 +399,11 @@ An alternative to using binder retry is to set up dead lettering with time to li
 See <<rabbit-binder-properties>> for more information about the properties discussed here.
 Example configuration to enable this feature:
 
-* Set `autoBindDlq` to `true` - the binder will create a DLQ; you can optinally specify a name in `deadLetterQueueName`
+* Set `autoBindDlq` to `true` - the binder will create a DLQ; you can optionally specify a name in `deadLetterQueueName`
 * Set `dlqTtl` to the back off time you want to wait between redeliveries
 * Set the `dlqDeadLetterExchange` to the default exchange - expired messages from the DLQ will be routed to the original queue since the default `deadLetterRoutingKey` is the queue name (`destination.group`)
 
-To force a message to be dead-lettered, either throw an `AmqpRejectAndDontRequeueException`, or set `requeueRejected` to `true`.
+To force a message to be dead-lettered, either throw an `AmqpRejectAndDontRequeueException`, or set `requeueRejected` to `true` and throw any exception.
 
 The loop will continue without end, which is fine for transient problems but you may want to give up after some number of attempts.
 Fortunately, RabbitMQ provides the `x-death` header which allows you to determine how many cycles have occurred.
