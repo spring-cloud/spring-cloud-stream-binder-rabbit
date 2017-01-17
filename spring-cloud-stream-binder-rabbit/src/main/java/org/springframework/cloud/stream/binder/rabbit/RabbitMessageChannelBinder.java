@@ -23,7 +23,9 @@ import java.util.Map;
 
 import org.springframework.amqp.AmqpConnectException;
 import org.springframework.amqp.core.AnonymousQueue;
+import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.BindingBuilder.DirectExchangeRoutingKeyConfigurer;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Exchange;
 import org.springframework.amqp.core.ExchangeBuilder;
@@ -479,7 +481,6 @@ public class RabbitMessageChannelBinder
 	 * queue name because we use default exchange routing by queue name for the original message.
 	 * @param baseQueueName   The base name for the queue (including the binder prefix, if any).
 	 * @param routingKey  The routing key for the queue.
-	 * @param autoBindDlq true if the DLQ should be bound.
 	 * @param properties the properties.
 	 */
 	private void autoBindDLQ(final String baseQueueName, String routingKey, RabbitCommonProperties properties) {
@@ -501,14 +502,23 @@ public class RabbitMessageChannelBinder
 			String dlxName = deadLetterExchangeName(properties);
 			final DirectExchange dlx = new DirectExchange(dlxName);
 			declareExchange(dlxName, dlx);
+			DirectExchangeRoutingKeyConfigurer bindingBuilder = BindingBuilder.bind(dlq).to(dlx);
+			Binding dlqBinding;
 			if (properties.getDeadLetterRoutingKey() == null) {
-				declareBinding(dlqName, BindingBuilder.bind(dlq).to(dlx).with(routingKey));
+				dlqBinding = bindingBuilder.with(routingKey);
 			}
 			else {
-				declareBinding(dlqName, BindingBuilder.bind(dlq).to(dlx).with(properties.getDeadLetterRoutingKey()));
+				dlqBinding = bindingBuilder.with(properties.getDeadLetterRoutingKey());
 			}
-			// Also bind with the base queue name in case republishToDlq is used, which does not know about partitioning
-			declareBinding(dlqName, BindingBuilder.bind(dlq).to(dlx).with(baseQueueName));
+			declareBinding(dlqName, dlqBinding);
+			if (properties instanceof RabbitConsumerProperties &&
+					((RabbitConsumerProperties) properties).isRepublishToDlq()) {
+				/*
+				 *  Also bind with the base queue name when republishToDlq is used, which does not know about
+				 * partitioning
+				 */
+				declareBinding(dlqName, BindingBuilder.bind(dlq).to(dlx).with(baseQueueName));
+			}
 		}
 	}
 

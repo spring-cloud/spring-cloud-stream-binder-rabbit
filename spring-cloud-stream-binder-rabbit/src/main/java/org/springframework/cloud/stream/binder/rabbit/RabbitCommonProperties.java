@@ -209,11 +209,11 @@ public abstract class RabbitCommonProperties {
 		this.maxLengthBytes = maxLengthBytes;
 	}
 
+	@Range(min = 0, max = 255)
 	public Integer getMaxPriority() {
 		return this.maxPriority;
 	}
 
-	@Range(min = 0, max = 255)
 	public void setMaxPriority(Integer maxPriority) {
 		this.maxPriority = maxPriority;
 	}
