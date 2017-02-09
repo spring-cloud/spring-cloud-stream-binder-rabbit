@@ -16,7 +16,6 @@
 
 package org.springframework.cloud.stream.binder.rabbit.provisioning;
 
-import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,7 +45,6 @@ import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.cloud.stream.provisioning.ProducerDestination;
 import org.springframework.cloud.stream.provisioning.ProvisioningProvider;
 import org.springframework.context.support.GenericApplicationContext;
-import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
@@ -88,7 +86,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		if (producerProperties.getExtension().isDeclareExchange()) {
 			declareExchange(exchangeName, exchange);
 		}
-
+		Binding binding = null;
 		for (String requiredGroupName : producerProperties.getRequiredGroups()) {
 			String baseQueueName = exchangeName + "." + requiredGroupName;
 			if (!producerProperties.isPartitioned()) {
@@ -97,7 +95,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 				declareQueue(baseQueueName, queue);
 				autoBindDLQ(baseQueueName, baseQueueName, producerProperties.getExtension());
 				if (producerProperties.getExtension().isBindQueue()) {
-					notPartitionedBinding(exchange, queue, producerProperties.getExtension());
+					binding = notPartitionedBinding(exchange, queue, producerProperties.getExtension());
 				}
 			}
 			else {
@@ -112,12 +110,12 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 					if (producerProperties.getExtension().isBindQueue()) {
 						String prefix = producerProperties.getExtension().getPrefix();
 						String destination = StringUtils.isEmpty(prefix) ? exchangeName : exchangeName.substring(prefix.length());
-						partitionedBinding(destination, exchange, queue, producerProperties.getExtension(), i);
+						binding = partitionedBinding(destination, exchange, queue, producerProperties.getExtension(), i);
 					}
 				}
 			}
 		}
-		return new RabbitProducerDestination(exchange);
+		return new RabbitProducerDestination(exchange, binding);
 	}
 
 	@Override
@@ -156,14 +154,15 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 			}
 		}
 		declareQueue(queueName, queue);
+		Binding binding = null;
 		if (properties.getExtension().isBindQueue()) {
-			declareConsumerBindings(name, properties, exchange, partitioned, queue);
+			binding = declareConsumerBindings(name, properties, exchange, partitioned, queue);
 		}
 		if (durable) {
 			autoBindDLQ(applyPrefix(properties.getExtension().getPrefix(), baseQueueName), queueName,
 					properties.getExtension());
 		}
-		return new RabbitConsumerDestination(queue);
+		return new RabbitConsumerDestination(queue, binding);
 	}
 
 	/**
@@ -177,7 +176,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		return name + GROUP_INDEX_DELIMITER + (StringUtils.hasText(group) ? group : "default");
 	}
 
-	private void partitionedBinding(String destination, Exchange exchange, Queue queue,
+	private Binding partitionedBinding(String destination, Exchange exchange, Queue queue,
 									RabbitCommonProperties extendedProperties, int index) {
 		String bindingKey = extendedProperties.getBindingRoutingKey();
 		if (bindingKey == null) {
@@ -185,14 +184,18 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		}
 		bindingKey += "-" + index;
 		if (exchange instanceof TopicExchange) {
-			declareBinding(queue.getName(), BindingBuilder.bind(queue)
+			Binding binding = BindingBuilder.bind(queue)
 					.to((TopicExchange) exchange)
-					.with(bindingKey));
+					.with(bindingKey);
+			declareBinding(queue.getName(), binding);
+			return binding;
 		}
 		else if (exchange instanceof DirectExchange) {
-			declareBinding(queue.getName(), BindingBuilder.bind(queue)
+			Binding binding = BindingBuilder.bind(queue)
 					.to((DirectExchange) exchange)
-					.with(bindingKey));
+					.with(bindingKey);
+			declareBinding(queue.getName(), binding);
+			return binding;
 		}
 		else if (exchange instanceof FanoutExchange) {
 			throw new IllegalStateException("A fanout exchange is not appropriate for partitioned apps");
@@ -202,34 +205,40 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		}
 	}
 
-	private void declareConsumerBindings(String name, ExtendedConsumerProperties<RabbitConsumerProperties> properties,
+	private Binding declareConsumerBindings(String name, ExtendedConsumerProperties<RabbitConsumerProperties> properties,
 										Exchange exchange, boolean partitioned, Queue queue) {
 		if (partitioned) {
-			partitionedBinding(name, exchange, queue, properties.getExtension(), properties.getInstanceIndex());
+			return partitionedBinding(name, exchange, queue, properties.getExtension(), properties.getInstanceIndex());
 		}
 		else {
-			notPartitionedBinding(exchange, queue, properties.getExtension());
+			return notPartitionedBinding(exchange, queue, properties.getExtension());
 		}
 	}
 
-	private void notPartitionedBinding(Exchange exchange, Queue queue, RabbitCommonProperties extendedProperties) {
+	private Binding notPartitionedBinding(Exchange exchange, Queue queue, RabbitCommonProperties extendedProperties) {
 		String routingKey = extendedProperties.getBindingRoutingKey();
 		if (routingKey == null) {
 			routingKey = "#";
 		}
 		if (exchange instanceof TopicExchange) {
-			declareBinding(queue.getName(), BindingBuilder.bind(queue)
+			Binding binding = BindingBuilder.bind(queue)
 					.to((TopicExchange) exchange)
-					.with(routingKey));
+					.with(routingKey);
+			declareBinding(queue.getName(), binding);
+			return binding;
 		}
 		else if (exchange instanceof DirectExchange) {
-			declareBinding(queue.getName(), BindingBuilder.bind(queue)
+			Binding binding = BindingBuilder.bind(queue)
 					.to((DirectExchange) exchange)
-					.with(routingKey));
+					.with(routingKey);
+			declareBinding(queue.getName(), binding);
+			return binding;
 		}
 		else if (exchange instanceof FanoutExchange) {
-			declareBinding(queue.getName(), BindingBuilder.bind(queue)
-					.to((FanoutExchange) exchange));
+			Binding binding = BindingBuilder.bind(queue)
+					.to((FanoutExchange) exchange);
+			declareBinding(queue.getName(), binding);
+			return binding;
 		}
 		else {
 			throw new IllegalStateException("Cannot bind to a " + exchange.getType() + " exchange");
@@ -378,10 +387,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 
 	private Exchange buildExchange(RabbitCommonProperties properties, String exchangeName) {
 		try {
-			// TODO Make the ctor public in Spring-AMQP - AMQP-695
-			Constructor<ExchangeBuilder> ctor = ExchangeBuilder.class.getDeclaredConstructor(String.class, String.class);
-			ReflectionUtils.makeAccessible(ctor);
-			ExchangeBuilder builder = ctor.newInstance(exchangeName, properties.getExchangeType());
+			ExchangeBuilder builder = new ExchangeBuilder(exchangeName, properties.getExchangeType());
 			if (properties.isDelayedExchange()) {
 				builder.delayed();
 			}
@@ -448,43 +454,57 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 	private final class RabbitProducerDestination implements ProducerDestination {
 
 		private final Exchange exchange;
+		private final Binding binding;
 
-		private RabbitProducerDestination(Exchange exchange) {
+		private RabbitProducerDestination(Exchange exchange, Binding binding) {
 			this.exchange = exchange;
+			this.binding = binding;
 		}
 
 		@Override
-		public String getProducerDestinationName() {
+		public String getName() {
 			return this.exchange.getName();
 		}
 
 		@Override
-		public String getPartitionedProducerDestinationName(int partition) {
+		public String getNameForPartition(int partition) {
 			return this.exchange.getName();
 		}
 
 		@Override
 		public String toString() {
-			return this.exchange.toString();
+			StringBuilder sb = new StringBuilder();
+			sb.append(this.exchange.toString());
+			if (this.binding != null) {
+				sb.append(this.binding.toString());
+			}
+			return sb.toString();
 		}
 	}
 
 	private final class RabbitConsumerDestination implements ConsumerDestination {
 
 		private final Queue queue;
+		private final Binding binding;
 
-		private RabbitConsumerDestination(Queue queue) {
+		private RabbitConsumerDestination(Queue queue, Binding binding) {
 			this.queue = queue;
+			this.binding = binding;
 		}
 
 		@Override
-		public String getConsumerDestinationName() {
+		public String getName() {
 			return this.queue.getName();
 		}
 
 		@Override
 		public String toString() {
-			return this.queue.toString();
+			StringBuilder sb = new StringBuilder();
+			sb.append(this.queue.toString());
+			if (this.binding != null) {
+				sb.append(this.binding.toString());
+			}
+			return sb.toString();
 		}
 	}
 }

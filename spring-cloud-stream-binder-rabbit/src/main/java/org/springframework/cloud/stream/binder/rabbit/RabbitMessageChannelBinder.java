@@ -185,10 +185,10 @@ public class RabbitMessageChannelBinder
 														ExtendedProducerProperties<RabbitProducerProperties> producerProperties)
 			throws Exception {
 		String prefix = producerProperties.getExtension().getPrefix();
-		String exchangeName = producerDestination.getProducerDestinationName();
+		String exchangeName = producerDestination.getName();
 		String destination = StringUtils.isEmpty(prefix) ? exchangeName : exchangeName.substring(prefix.length());
 		final AmqpOutboundEndpoint endpoint = new AmqpOutboundEndpoint(buildRabbitTemplate(producerProperties.getExtension()));
-		endpoint.setExchangeName(producerDestination.getProducerDestinationName());
+		endpoint.setExchangeName(producerDestination.getName());
 		RabbitProducerProperties extendedProperties = producerProperties.getExtension();
 		String routingKeyExpression = extendedProperties.getRoutingKeyExpression();
 		if (!producerProperties.isPartitioned()) {
@@ -228,7 +228,7 @@ public class RabbitMessageChannelBinder
 		convertingBridgeChannel.setBeanFactory(this.getBeanFactory());
 
 		String prefix = properties.getExtension().getPrefix();
-		String destination = consumerDestination.getConsumerDestinationName();
+		String destination = consumerDestination.getName();
 		String prefixStripped = StringUtils.isEmpty(prefix) ? destination : destination.substring(prefix.length());
 		String baseQueueName = StringUtils.hasText(group) ? prefixStripped.substring(0, prefixStripped.indexOf(group)) + group : prefixStripped;
 
@@ -248,8 +248,8 @@ public class RabbitMessageChannelBinder
 		listenerContainer.setPrefetchCount(properties.getExtension().getPrefetch());
 		listenerContainer.setRecoveryInterval(properties.getExtension().getRecoveryInterval());
 		listenerContainer.setTxSize(properties.getExtension().getTxSize());
-		listenerContainer.setTaskExecutor(new SimpleAsyncTaskExecutor(consumerDestination.getConsumerDestinationName() + "-"));
-		listenerContainer.setQueueNames(consumerDestination.getConsumerDestinationName());
+		listenerContainer.setTaskExecutor(new SimpleAsyncTaskExecutor(consumerDestination.getName() + "-"));
+		listenerContainer.setQueueNames(consumerDestination.getName());
 		if (properties.getMaxAttempts() > 1 || properties.getExtension().isRepublishToDlq()) {
 			RetryOperationsInterceptor retryInterceptor = RetryInterceptorBuilder.stateless()
 					.retryOperations(buildRetryTemplate(properties))
@@ -285,7 +285,7 @@ public class RabbitMessageChannelBinder
 	@Override
 	protected void afterUnbindConsumer(ConsumerDestination consumerDestination, String group,
 			ExtendedConsumerProperties<RabbitConsumerProperties> consumerProperties) {
-		((RabbitExchangeQueueProvisioner)provisioningProvider).cleanAutoDeclareContext(consumerDestination.getConsumerDestinationName());
+		((RabbitExchangeQueueProvisioner)provisioningProvider).cleanAutoDeclareContext(consumerDestination.getName());
 	}
 
 	private MessageRecoverer determineRecoverer(String name, RabbitCommonProperties properties, boolean republish) {
