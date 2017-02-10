@@ -50,7 +50,6 @@ import org.springframework.cloud.stream.binder.rabbit.properties.RabbitProducerP
 import org.springframework.cloud.stream.binder.rabbit.provisioning.RabbitExchangeQueueProvisioner;
 import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.cloud.stream.provisioning.ProducerDestination;
-import org.springframework.cloud.stream.provisioning.ProvisioningProvider;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.amqp.outbound.AmqpOutboundEndpoint;
@@ -108,12 +107,10 @@ public class RabbitMessageChannelBinder
 
 	private RabbitExtendedBindingProperties extendedBindingProperties = new RabbitExtendedBindingProperties();
 
-	ProvisioningProvider<ExtendedConsumerProperties<RabbitConsumerProperties>,
-			ExtendedProducerProperties<RabbitProducerProperties>> provisioningProvider;
+	RabbitExchangeQueueProvisioner provisioningProvider;
 
 	public RabbitMessageChannelBinder(ConnectionFactory connectionFactory, RabbitProperties rabbitProperties,
-										ProvisioningProvider<ExtendedConsumerProperties<RabbitConsumerProperties>,
-										ExtendedProducerProperties<RabbitProducerProperties>> provisioningProvider) {
+										RabbitExchangeQueueProvisioner provisioningProvider) {
 		super(true, new String[0], provisioningProvider);
 		Assert.notNull(connectionFactory, "connectionFactory must not be null");
 		Assert.notNull(rabbitProperties, "rabbitProperties must not be null");
@@ -285,7 +282,7 @@ public class RabbitMessageChannelBinder
 	@Override
 	protected void afterUnbindConsumer(ConsumerDestination consumerDestination, String group,
 			ExtendedConsumerProperties<RabbitConsumerProperties> consumerProperties) {
-		((RabbitExchangeQueueProvisioner)provisioningProvider).cleanAutoDeclareContext(consumerDestination.getName());
+		provisioningProvider.cleanAutoDeclareContext(consumerDestination.getName());
 	}
 
 	private MessageRecoverer determineRecoverer(String name, RabbitCommonProperties properties, boolean republish) {

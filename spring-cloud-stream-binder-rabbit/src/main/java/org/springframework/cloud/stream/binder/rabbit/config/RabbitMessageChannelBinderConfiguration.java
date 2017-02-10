@@ -24,16 +24,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.PropertyPlaceholderAutoConfiguration;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
-import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.rabbit.RabbitMessageChannelBinder;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitBinderConfigurationProperties;
-import org.springframework.cloud.stream.binder.rabbit.properties.RabbitConsumerProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitExtendedBindingProperties;
-import org.springframework.cloud.stream.binder.rabbit.properties.RabbitProducerProperties;
 import org.springframework.cloud.stream.binder.rabbit.provisioning.RabbitExchangeQueueProvisioner;
 import org.springframework.cloud.stream.config.codec.kryo.KryoCodecAutoConfiguration;
-import org.springframework.cloud.stream.provisioning.ProvisioningProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -92,8 +87,7 @@ public class RabbitMessageChannelBinderConfiguration {
 	}
 
 	@Bean
-	ProvisioningProvider<ExtendedConsumerProperties<RabbitConsumerProperties>,
-			ExtendedProducerProperties<RabbitProducerProperties>> provisioningProvider() {
+	RabbitExchangeQueueProvisioner provisioningProvider() {
 		return new RabbitExchangeQueueProvisioner(rabbitConnectionFactory);
 	}
 }
