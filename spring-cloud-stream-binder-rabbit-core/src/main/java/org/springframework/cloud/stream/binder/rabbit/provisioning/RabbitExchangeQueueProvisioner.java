@@ -45,6 +45,7 @@ import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.cloud.stream.provisioning.ProducerDestination;
 import org.springframework.cloud.stream.provisioning.ProvisioningProvider;
 import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
 /**
@@ -457,6 +458,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		private final Binding binding;
 
 		private RabbitProducerDestination(Exchange exchange, Binding binding) {
+			Assert.notNull(exchange, "exchange must not be null");
 			this.exchange = exchange;
 			this.binding = binding;
 		}
@@ -488,6 +490,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		private final Binding binding;
 
 		private RabbitConsumerDestination(Queue queue, Binding binding) {
+			Assert.notNull(queue, "queue must not be null");
 			this.queue = queue;
 			this.binding = binding;
 		}
