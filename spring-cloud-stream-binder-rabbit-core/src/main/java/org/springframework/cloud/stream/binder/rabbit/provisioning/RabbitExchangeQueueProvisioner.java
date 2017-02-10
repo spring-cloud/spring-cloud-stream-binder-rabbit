@@ -43,6 +43,7 @@ import org.springframework.cloud.stream.binder.rabbit.properties.RabbitConsumerP
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitProducerProperties;
 import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.cloud.stream.provisioning.ProducerDestination;
+import org.springframework.cloud.stream.provisioning.ProvisioningException;
 import org.springframework.cloud.stream.provisioning.ProvisioningProvider;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.util.Assert;
@@ -199,10 +200,10 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 			return binding;
 		}
 		else if (exchange instanceof FanoutExchange) {
-			throw new IllegalStateException("A fanout exchange is not appropriate for partitioned apps");
+			throw new ProvisioningException("A fanout exchange is not appropriate for partitioned apps");
 		}
 		else {
-			throw new IllegalStateException("Cannot bind to a " + exchange.getType() + " exchange");
+			throw new ProvisioningException("Cannot bind to a " + exchange.getType() + " exchange");
 		}
 	}
 
@@ -242,7 +243,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 			return binding;
 		}
 		else {
-			throw new IllegalStateException("Cannot bind to a " + exchange.getType() + " exchange");
+			throw new ProvisioningException("Cannot bind to a " + exchange.getType() + " exchange");
 		}
 	}
 
@@ -395,7 +396,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 			return builder.build();
 		}
 		catch (Exception e) {
-			throw new IllegalStateException("Failed to create exchange object", e);
+			throw new ProvisioningException("Failed to create exchange object", e);
 		}
 	}
 
