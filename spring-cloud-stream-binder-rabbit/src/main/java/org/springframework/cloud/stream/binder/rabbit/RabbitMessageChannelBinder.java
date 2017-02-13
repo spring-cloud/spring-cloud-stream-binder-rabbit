@@ -52,6 +52,7 @@ import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.cloud.stream.binder.AbstractMessageChannelBinder;
+import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.ExtendedPropertiesBinder;
@@ -360,10 +361,10 @@ public class RabbitMessageChannelBinder
 		}
 		else {
 			if (routingKeyExpression == null) {
-				endpoint.setRoutingKeyExpressionString(buildPartitionRoutingExpression(destination));
+				endpoint.setRoutingKeyExpressionString(buildPartitionRoutingExpression(destination, false));
 			}
 			else {
-				endpoint.setRoutingKeyExpressionString(buildPartitionRoutingExpression(routingKeyExpression));
+				endpoint.setRoutingKeyExpressionString(buildPartitionRoutingExpression(routingKeyExpression, true));
 			}
 		}
 		if (extendedProperties.getDelayExpression() != null) {
@@ -408,6 +409,11 @@ public class RabbitMessageChannelBinder
 		return endpoint;
 	}
 
+	private String buildPartitionRoutingExpression(String expressionRoot, boolean rootIsExpression) {
+		return rootIsExpression
+					? expressionRoot + " + '-' + headers['" + BinderHeaders.PARTITION_HEADER + "']"
+					: "'" + expressionRoot + "-' + headers['" + BinderHeaders.PARTITION_HEADER + "']";
+	}
 
 	private RabbitTemplate buildRabbitTemplate(RabbitProducerProperties properties) {
 		RabbitTemplate rabbitTemplate;

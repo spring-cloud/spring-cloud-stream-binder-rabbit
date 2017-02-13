@@ -32,6 +32,7 @@ import org.aopalliance.aop.Advice;
 import org.apache.commons.logging.Log;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.mockito.ArgumentCaptor;
 
 import org.springframework.amqp.core.AcknowledgeMode;
@@ -89,6 +90,9 @@ public class RabbitBinderTests extends
 	@Rule
 	public RabbitTestSupport rabbitAvailableRule = new RabbitTestSupport(true);
 
+	@Rule
+	public TestName testName = new TestName();
+
 	@Override
 	protected RabbitTestBinder getBinder() {
 		if (testBinder == null) {
@@ -104,7 +108,12 @@ public class RabbitBinderTests extends
 
 	@Override
 	protected ExtendedProducerProperties<RabbitProducerProperties> createProducerProperties() {
-		return new ExtendedProducerProperties<>(new RabbitProducerProperties());
+		ExtendedProducerProperties<RabbitProducerProperties> props = new ExtendedProducerProperties<>(
+				new RabbitProducerProperties());
+		if (testName.getMethodName().equals("testPartitionedModuleSpEL")) {
+			props.getExtension().setRoutingKeyExpression("'part.0'");
+		}
+		return props;
 	}
 
 	@Override
@@ -295,8 +304,7 @@ public class RabbitBinderTests extends
 		producerBinding = binder.bindProducer("props.0", channel,
 				producerProperties);
 		endpoint = extractEndpoint(producerBinding);
-		assertThat(TestUtils.getPropertyValue(endpoint, "routingKeyExpression", SpelExpression.class)
-				.getExpressionString()).isEqualTo("'props.0-' + headers['partition']");
+		assertThat(getEndpointRouting(endpoint)).isEqualTo("'props.0-' + headers['partition']");
 		assertThat(TestUtils.getPropertyValue(endpoint, "delayExpression", SpelExpression.class)
 				.getExpressionString()).isEqualTo("42");
 		mode = TestUtils.getPropertyValue(endpoint, "defaultDeliveryMode", MessageDeliveryMode.class);
@@ -965,6 +973,12 @@ public class RabbitBinderTests extends
 	@Override
 	protected String getClassUnderTestName() {
 		return CLASS_UNDER_TEST_NAME;
+	}
+
+	@Override
+	protected void checkRkExpressionForPartitionedModuleSpEL(Object endpoint) {
+		assertThat(getEndpointRouting(endpoint))
+			.contains(getExpectedRoutingBaseDestination("'part.0'", "test") + " + '-' + headers['partition']");
 	}
 
 	@Override
