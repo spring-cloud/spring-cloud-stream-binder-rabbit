@@ -226,7 +226,8 @@ public class RabbitMessageChannelBinder
 
 		String prefix = properties.getExtension().getPrefix();
 		String destination = consumerDestination.getName();
-		String prefixStripped = StringUtils.isEmpty(prefix) ? destination : destination.substring(prefix.length());
+		String prefixStripped = (StringUtils.isEmpty(prefix) || !destination.startsWith(prefix)) ? destination
+				: destination.substring(prefix.length());
 		String baseQueueName = StringUtils.hasText(group) ? prefixStripped.substring(0, prefixStripped.indexOf(group)) + group : prefixStripped;
 
 		convertingBridgeChannel.setBeanName(baseQueueName + ".bridge");

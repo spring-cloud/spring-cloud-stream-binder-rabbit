@@ -476,12 +476,10 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 
 		@Override
 		public String toString() {
-			StringBuilder sb = new StringBuilder();
-			sb.append(this.exchange.toString());
-			if (this.binding != null) {
-				sb.append(this.binding.toString());
-			}
-			return sb.toString();
+			return "RabbitProducerDestination{" +
+					"exchange=" + exchange +
+					", binding=" + binding +
+					'}';
 		}
 	}
 
@@ -497,18 +495,16 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		}
 
 		@Override
-		public String getName() {
-			return this.queue.getName();
+		public String toString() {
+			return "RabbitConsumerDestination{" +
+					"queue=" + queue +
+					", binding=" + binding +
+					'}';
 		}
 
 		@Override
-		public String toString() {
-			StringBuilder sb = new StringBuilder();
-			sb.append(this.queue.toString());
-			if (this.binding != null) {
-				sb.append(this.binding.toString());
-			}
-			return sb.toString();
+		public String getName() {
+			return this.queue.getName();
 		}
 	}
 }
