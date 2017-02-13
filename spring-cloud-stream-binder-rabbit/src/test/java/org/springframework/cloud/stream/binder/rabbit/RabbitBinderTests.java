@@ -1070,7 +1070,7 @@ public class RabbitBinderTests extends
 	}
 
 	@Override
-	protected void checkRkExpression(Object endpoint) {
+	protected void checkRkExpressionForPartitionedModuleSpEL(Object endpoint) {
 		assertThat(getEndpointRouting(endpoint))
 			.contains(getExpectedRoutingBaseDestination("'part.0'", "test") + " + '-' + headers['partition']");
 	}
