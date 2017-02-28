@@ -18,9 +18,6 @@ package org.springframework.cloud.stream.binder.rabbit;
 
 import java.util.Arrays;
 
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Envelope;
-
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
@@ -65,6 +62,9 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Envelope;
+
 /**
  * A {@link org.springframework.cloud.stream.binder.Binder} implementation backed by RabbitMQ.
  * @author Mark Fisher
@@ -93,6 +93,8 @@ public class RabbitMessageChannelBinder
 			};
 
 	private final RabbitProperties rabbitProperties;
+
+	private final RabbitExchangeQueueProvisioner provisioningProvider;
 
 	private ConnectionFactory connectionFactory;
 
