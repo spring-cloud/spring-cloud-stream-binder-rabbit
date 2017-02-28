@@ -266,6 +266,8 @@ public class RabbitBinderTests extends
 			exchange = rmt.getExchange("propsUser2");
 		}
 		assertThat(exchange).isInstanceOf(DirectExchange.class);
+		assertThat(exchange.isDurable()).isEqualTo(true);
+		assertThat(exchange.isAutoDelete()).isEqualTo(false);
 	}
 
 	@Test

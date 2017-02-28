@@ -26,7 +26,7 @@ import org.springframework.amqp.core.ExchangeTypes;
 public abstract class RabbitCommonProperties {
 
 	/**
-	 * type of exchange to declare (if necessary, and declareExchange is true).
+	 * type of exchange to declare (if necessary, and declareExchange is true)
 	 */
 	private String exchangeType = ExchangeTypes.TOPIC;
 
@@ -39,6 +39,15 @@ public abstract class RabbitCommonProperties {
 	 * whether a delayed message exchange should be used
 	 */
 	private boolean delayedExchange = false;
+
+	/**
+	 * whether to declare the exchange as durable
+	 */
+	private boolean exchangeDurable = true;
+	/**
+	 * whether to declare the exchange as auto-delete
+	 */
+	private boolean exchangeAutoDelete = false;
 
 	/**
 	 * whether to bind a queue (or queues when partitioned) to the exchange
@@ -72,6 +81,22 @@ public abstract class RabbitCommonProperties {
 
 	public void setDelayedExchange(boolean delayedExchange) {
 		this.delayedExchange = delayedExchange;
+	}
+
+	public boolean isExchangeDurable() {
+		return exchangeDurable;
+	}
+
+	public void setExchangeDurable(boolean exchangeDurable) {
+		this.exchangeDurable = exchangeDurable;
+	}
+
+	public boolean isExchangeAutoDelete() {
+		return exchangeAutoDelete;
+	}
+
+	public void setExchangeAutoDelete(boolean exchangeAutoDelete) {
+		this.exchangeAutoDelete = exchangeAutoDelete;
 	}
 
 	public boolean isBindQueue() {
