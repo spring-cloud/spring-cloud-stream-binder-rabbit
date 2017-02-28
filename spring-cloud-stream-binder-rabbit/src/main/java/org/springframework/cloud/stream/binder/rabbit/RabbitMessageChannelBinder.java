@@ -481,6 +481,12 @@ public class RabbitMessageChannelBinder
 			Constructor<ExchangeBuilder> ctor = ExchangeBuilder.class.getDeclaredConstructor(String.class, String.class);
 			ReflectionUtils.makeAccessible(ctor);
 			ExchangeBuilder builder = ctor.newInstance(exchangeName, properties.getExchangeType());
+			if (properties.isExchangeDurable()) {
+				builder.durable();
+			}
+			if (properties.isExchangeAutoDelete()) {
+				builder.autoDelete();
+			}
 			if (properties.isDelayedExchange()) {
 				builder.delayed();
 			}
