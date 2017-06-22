@@ -88,6 +88,9 @@ public class RabbitMessageChannelBinder
 		ExtendedProducerProperties<RabbitProducerProperties>, RabbitExchangeQueueProvisioner>
 		implements ExtendedPropertiesBinder<MessageChannel, RabbitConsumerProperties, RabbitProducerProperties> {
 
+	private static final AmqpMessageHeaderErrorMessageStrategy errorMessageStrategy =
+			new AmqpMessageHeaderErrorMessageStrategy();
+
 	private static final MessagePropertiesConverter inboundMessagePropertiesConverter =
 			new DefaultMessagePropertiesConverter() {
 
@@ -276,15 +279,15 @@ public class RabbitMessageChannelBinder
 			}
 		}
 		else {
+			adapter.setErrorMessageStrategy(errorMessageStrategy);
 			adapter.setErrorChannel(errorInfrastructure.getErrorChannel());
 		}
-		adapter.afterPropertiesSet();
 		return adapter;
 	}
 
 	@Override
 	protected ErrorMessageStrategy getErrorMessageStrategy() {
-		return new AmqpMessageHeaderErrorMessageStrategy();
+		return errorMessageStrategy;
 	}
 
 	@Override
