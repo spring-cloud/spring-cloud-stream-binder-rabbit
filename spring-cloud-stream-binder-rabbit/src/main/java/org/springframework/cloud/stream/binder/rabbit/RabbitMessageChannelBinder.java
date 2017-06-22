@@ -368,6 +368,12 @@ public class RabbitMessageChannelBinder
 		}
 	}
 
+	@Override
+	protected String errorsBaseName(ConsumerDestination destination, String group,
+			ExtendedConsumerProperties<RabbitConsumerProperties> consumerProperties) {
+		return destination.getName() + ".errors";
+	}
+
 	private String deadLetterExchangeName(RabbitCommonProperties properties) {
 		if (properties.getDeadLetterExchange() == null) {
 			return applyPrefix(properties.getPrefix(), RabbitCommonProperties.DEAD_LETTER_EXCHANGE);
