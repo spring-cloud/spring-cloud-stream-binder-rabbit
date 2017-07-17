@@ -267,6 +267,7 @@ public class RabbitMessageChannelBinder
 		}
 		listenerContainer.setAfterReceivePostProcessors(this.decompressingPostProcessor);
 		listenerContainer.setMessagePropertiesConverter(RabbitMessageChannelBinder.inboundMessagePropertiesConverter);
+		listenerContainer.setExclusive(properties.getExtension().isExclusive());
 		listenerContainer.afterPropertiesSet();
 
 		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(listenerContainer);
