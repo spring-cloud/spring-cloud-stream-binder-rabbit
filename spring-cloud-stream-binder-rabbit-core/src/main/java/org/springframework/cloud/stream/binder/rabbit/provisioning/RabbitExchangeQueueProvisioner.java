@@ -462,7 +462,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		}
 	}
 
-	private static final class RabbitProducerDestination implements ProducerDestination {
+	private static final class RabbitProducerDestination implements ProducerDestination<ExtendedProducerProperties<RabbitProducerProperties>> {
 
 		private final Exchange exchange;
 
@@ -480,6 +480,12 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		}
 
 		@Override
+		public ExtendedProducerProperties<RabbitProducerProperties> getProperties() {
+			return null;
+		}
+
+
+		@Override
 		public String getNameForPartition(int partition) {
 			return this.exchange.getName();
 		}
@@ -493,7 +499,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		}
 	}
 
-	private static final class RabbitConsumerDestination implements ConsumerDestination {
+	private static final class RabbitConsumerDestination implements ConsumerDestination<ExtendedConsumerProperties<RabbitConsumerProperties>> {
 
 		private final Queue queue;
 		private final Binding binding;
@@ -516,6 +522,12 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		public String getName() {
 			return this.queue.getName();
 		}
+
+		@Override
+		public ExtendedConsumerProperties<RabbitConsumerProperties> getProperties() {
+			return null;
+		}
+
 	}
 
 }

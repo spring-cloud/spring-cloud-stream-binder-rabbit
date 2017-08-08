@@ -45,6 +45,7 @@ import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties.Retry;
 import org.springframework.cloud.stream.binder.AbstractMessageChannelBinder;
+import org.springframework.cloud.stream.binder.BinderErrorConfigurer;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
@@ -94,8 +95,7 @@ public class RabbitMessageChannelBinder
 		ExtendedProducerProperties<RabbitProducerProperties>, RabbitExchangeQueueProvisioner>
 		implements ExtendedPropertiesBinder<MessageChannel, RabbitConsumerProperties, RabbitProducerProperties> {
 
-	private static final AmqpMessageHeaderErrorMessageStrategy errorMessageStrategy =
-			new AmqpMessageHeaderErrorMessageStrategy();
+
 
 	private static final MessagePropertiesConverter inboundMessagePropertiesConverter =
 			new DefaultMessagePropertiesConverter() {
@@ -126,8 +126,9 @@ public class RabbitMessageChannelBinder
 	private RabbitExtendedBindingProperties extendedBindingProperties = new RabbitExtendedBindingProperties();
 
 	public RabbitMessageChannelBinder(ConnectionFactory connectionFactory, RabbitProperties rabbitProperties,
-										RabbitExchangeQueueProvisioner provisioningProvider) {
-		super(true, new String[0], provisioningProvider);
+										RabbitExchangeQueueProvisioner provisioningProvider,
+										BinderErrorConfigurer errorConfigurer) {
+		super(true, new String[0], provisioningProvider, errorConfigurer);
 		Assert.notNull(connectionFactory, "connectionFactory must not be null");
 		Assert.notNull(rabbitProperties, "rabbitProperties must not be null");
 		this.connectionFactory = connectionFactory;
@@ -272,107 +273,9 @@ public class RabbitMessageChannelBinder
 		DefaultAmqpHeaderMapper mapper = DefaultAmqpHeaderMapper.inboundMapper();
 		mapper.setRequestHeaderNames(properties.getExtension().getHeaderPatterns());
 		adapter.setHeaderMapper(mapper);
-		ErrorInfrastructure errorInfrastructure = registerErrorInfrastructure(consumerDestination, group, properties);
-		if (properties.getMaxAttempts() > 1) {
-			adapter.setRetryTemplate(buildRetryTemplate(properties));
-			if (properties.getExtension().isRepublishToDlq()) {
-				adapter.setRecoveryCallback(errorInfrastructure.getRecoverer());
-			}
-		}
-		else {
-			adapter.setErrorMessageStrategy(errorMessageStrategy);
-			adapter.setErrorChannel(errorInfrastructure.getErrorChannel());
-		}
+
+
 		return adapter;
-	}
-
-	@Override
-	protected ErrorMessageStrategy getErrorMessageStrategy() {
-		return errorMessageStrategy;
-	}
-
-	@Override
-	protected MessageHandler getErrorMessageHandler(ConsumerDestination destination, String group,
-			final ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
-		if (properties.getExtension().isRepublishToDlq()) {
-			return new MessageHandler() {
-
-				private final RabbitTemplate template = new RabbitTemplate(
-						RabbitMessageChannelBinder.this.connectionFactory);
-
-				private final String exchange = deadLetterExchangeName(properties.getExtension());
-
-				private final String routingKey = properties.getExtension().getDeadLetterRoutingKey();
-
-				@Override
-				public void handleMessage(org.springframework.messaging.Message<?> message) throws MessagingException {
-					Message amqpMessage = (Message) message.getHeaders()
-							.get(AmqpMessageHeaderErrorMessageStrategy.AMQP_RAW_MESSAGE);
-					if (!(message instanceof ErrorMessage)) {
-						logger.error("Expected an ErrorMessage, not a " + message.getClass().toString() + " for: "
-								+ message);
-					}
-					else if (amqpMessage == null) {
-						logger.error("No raw message header in " + message);
-					}
-					else {
-						Throwable cause = (Throwable) message.getPayload();
-						MessageProperties messageProperties = amqpMessage.getMessageProperties();
-						Map<String, Object> headers = messageProperties.getHeaders();
-						headers.put(RepublishMessageRecoverer.X_EXCEPTION_STACKTRACE, getStackTraceAsString(cause));
-						headers.put(RepublishMessageRecoverer.X_EXCEPTION_MESSAGE,
-								cause.getCause() != null ? cause.getCause().getMessage() : cause.getMessage());
-						headers.put(RepublishMessageRecoverer.X_ORIGINAL_EXCHANGE,
-								messageProperties.getReceivedExchange());
-						headers.put(RepublishMessageRecoverer.X_ORIGINAL_ROUTING_KEY,
-								messageProperties.getReceivedRoutingKey());
-						if (properties.getExtension().getRepublishDeliveyMode() != null) {
-							messageProperties.setDeliveryMode(properties.getExtension().getRepublishDeliveyMode());
-						}
-						template.send(this.exchange,
-								this.routingKey != null ? this.routingKey : messageProperties.getConsumerQueue(),
-								amqpMessage);
-					}
-				}
-
-			};
-		}
-		else if (properties.getMaxAttempts() > 1) {
-			return new MessageHandler() {
-
-				private final RejectAndDontRequeueRecoverer recoverer = new RejectAndDontRequeueRecoverer();
-
-				@Override
-				public void handleMessage(org.springframework.messaging.Message<?> message) throws MessagingException {
-					Message amqpMessage = (Message) message.getHeaders()
-							.get(AmqpMessageHeaderErrorMessageStrategy.AMQP_RAW_MESSAGE);
-					if (!(message instanceof ErrorMessage)) {
-						logger.error("Expected an ErrorMessage, not a " + message.getClass().toString() + " for: "
-								+ message);
-						throw new ListenerExecutionFailedException("Unexpected error message " + message,
-								new AmqpRejectAndDontRequeueException(""), null);
-					}
-					else if (amqpMessage == null) {
-						logger.error("No raw message header in " + message);
-						throw new ListenerExecutionFailedException("Unexpected error message " + message,
-								new AmqpRejectAndDontRequeueException(""), amqpMessage);
-					}
-					else {
-						this.recoverer.recover(amqpMessage, (Throwable) message.getPayload());
-					}
-				}
-
-			};
-		}
-		else {
-			return super.getErrorMessageHandler(destination, group, properties);
-		}
-	}
-
-	@Override
-	protected String errorsBaseName(ConsumerDestination destination, String group,
-			ExtendedConsumerProperties<RabbitConsumerProperties> consumerProperties) {
-		return destination.getName() + ".errors";
 	}
 
 	private String deadLetterExchangeName(RabbitCommonProperties properties) {
