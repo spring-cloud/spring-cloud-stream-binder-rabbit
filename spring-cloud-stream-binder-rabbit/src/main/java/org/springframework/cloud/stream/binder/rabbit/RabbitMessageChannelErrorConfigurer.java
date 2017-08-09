@@ -47,11 +47,11 @@ public class RabbitMessageChannelErrorConfigurer extends AbstractMessageChannelE
 
 
 	@Override
-	public void configure(String destination, Binding<MessageChannel> binding) {
+	public void configure(Binding<MessageChannel> binding) {
 		MessageProducerBinding consumerBinding = (MessageProducerBinding) binding;
 		ExtendedConsumerProperties<RabbitConsumerProperties> properties = (ExtendedConsumerProperties<RabbitConsumerProperties>)consumerBinding.getDestination().getProperties();
 		AmqpInboundChannelAdapter adapter = (AmqpInboundChannelAdapter)consumerBinding.getMessageProducer();
-		ErrorInfrastructure errorInfrastructure = getErrorInfrastructure(destination);
+		ErrorInfrastructure errorInfrastructure = getErrorInfrastructure(consumerBinding.getDestination().getName());
 		if (properties.getMaxAttempts() > 1) {
 			adapter.setRetryTemplate(buildRetryTemplate(properties));
 			if (properties.getExtension().isRepublishToDlq()) {
