@@ -21,6 +21,7 @@ import org.springframework.cloud.stream.binder.MessageProducerBinding;
 import org.springframework.cloud.stream.binder.ProducerBinding;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitCommonProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitConsumerProperties;
+import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.amqp.support.AmqpMessageHeaderErrorMessageStrategy;
 import org.springframework.integration.support.ErrorMessageStrategy;
@@ -65,7 +66,7 @@ public class RabbitMessageChannelErrorConfigurer extends AbstractMessageChannelE
 	}
 
 	@Override
-	protected MessageHandler getErrorMessageHandler(String destination, String group, final ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
+	protected MessageHandler getErrorMessageHandler(ConsumerDestination destination, String group, final ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
 		if (properties.getExtension().isRepublishToDlq()) {
 			return new MessageHandler() {
 
