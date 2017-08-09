@@ -49,6 +49,7 @@ import org.springframework.amqp.support.postprocessor.DelegatingDecompressingPos
 import org.springframework.amqp.utils.test.TestUtils;
 import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
+import org.springframework.cloud.stream.binder.BinderErrorConfigurer;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.binder.Binding;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
@@ -79,6 +80,7 @@ import org.springframework.messaging.support.GenericMessage;
 import org.springframework.retry.support.RetryTemplate;
 
 import com.rabbitmq.http.client.domain.QueueInfo;
+import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.spy;
@@ -985,7 +987,7 @@ public class RabbitBinderTests extends
 		CachingConnectionFactory cf = new CachingConnectionFactory("localhost", proxy.getPort());
 
 		RabbitMessageChannelBinder rabbitBinder = new RabbitMessageChannelBinder(cf, new RabbitProperties(),
-				new RabbitExchangeQueueProvisioner(cf));
+				new RabbitExchangeQueueProvisioner(cf), new RabbitMessageChannelErrorConfigurer(cf));
 		RabbitTestBinder binder = new RabbitTestBinder(cf, rabbitBinder);
 
 		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();

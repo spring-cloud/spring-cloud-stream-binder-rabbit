@@ -1,10 +1,14 @@
 package org.springframework.cloud.stream.binder.rabbit;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Map;
+
 
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.exception.ListenerExecutionFailedException;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
@@ -13,6 +17,9 @@ import org.springframework.cloud.stream.binder.AbstractMessageChannelErrorConfig
 import org.springframework.cloud.stream.binder.Binding;
 import org.springframework.cloud.stream.binder.ConsumerBinding;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
+import org.springframework.cloud.stream.binder.MessageProducerBinding;
+import org.springframework.cloud.stream.binder.ProducerBinding;
+import org.springframework.cloud.stream.binder.rabbit.properties.RabbitCommonProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitConsumerProperties;
 import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.amqp.support.AmqpMessageHeaderErrorMessageStrategy;
@@ -24,17 +31,26 @@ import org.springframework.messaging.support.ErrorMessage;
 
 /**
  * @author Vinicius Carvalho
+ * @author Gary Russel
  */
 public class RabbitMessageChannelErrorConfigurer extends AbstractMessageChannelErrorConfigurer <ExtendedConsumerProperties<RabbitConsumerProperties>>{
 
 	private static final AmqpMessageHeaderErrorMessageStrategy errorMessageStrategy =
 			new AmqpMessageHeaderErrorMessageStrategy();
 
+	public RabbitMessageChannelErrorConfigurer(ConnectionFactory connectionFactory) {
+		this.connectionFactory = connectionFactory;
+	}
+
+	private final ConnectionFactory connectionFactory;
+
+
+
 	@Override
 	public void configure(String destination, Binding<MessageChannel> binding) {
-		ConsumerBinding<MessageChannel> consumerBinding = (ConsumerBinding)binding;
+		MessageProducerBinding consumerBinding = (MessageProducerBinding) binding;
 		ExtendedConsumerProperties<RabbitConsumerProperties> properties = (ExtendedConsumerProperties<RabbitConsumerProperties>)consumerBinding.getDestination().getProperties();
-		AmqpInboundChannelAdapter adapter = (AmqpInboundChannelAdapter)binding.getTarget();
+		AmqpInboundChannelAdapter adapter = (AmqpInboundChannelAdapter)consumerBinding.getMessageProducer();
 		ErrorInfrastructure errorInfrastructure = getErrorInfrastructure(destination);
 		if (properties.getMaxAttempts() > 1) {
 			adapter.setRetryTemplate(buildRetryTemplate(properties));
@@ -49,12 +65,12 @@ public class RabbitMessageChannelErrorConfigurer extends AbstractMessageChannelE
 	}
 
 	@Override
-	protected MessageHandler getErrorMessageHandler(String destination, String group, ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
+	protected MessageHandler getErrorMessageHandler(String destination, String group, final ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
 		if (properties.getExtension().isRepublishToDlq()) {
 			return new MessageHandler() {
 
 				private final RabbitTemplate template = new RabbitTemplate(
-						RabbitMessageChannelBinder.this.connectionFactory);
+						RabbitMessageChannelErrorConfigurer.this.connectionFactory);
 
 				private final String exchange = deadLetterExchangeName(properties.getExtension());
 
@@ -125,8 +141,24 @@ public class RabbitMessageChannelErrorConfigurer extends AbstractMessageChannelE
 		}
 	}
 
+	private String deadLetterExchangeName(RabbitCommonProperties properties) {
+		if (properties.getDeadLetterExchange() == null) {
+			return RabbitMessageChannelBinder.applyPrefix(properties.getPrefix(), RabbitCommonProperties.DEAD_LETTER_EXCHANGE);
+		}
+		else {
+			return properties.getDeadLetterExchange();
+		}
+	}
+
 	@Override
 	protected ErrorMessageStrategy getErrorMessageStrategy() {
 		return errorMessageStrategy;
+	}
+
+	private String getStackTraceAsString(Throwable cause) {
+		StringWriter stringWriter = new StringWriter();
+		PrintWriter printWriter = new PrintWriter(stringWriter, true);
+		cause.printStackTrace(printWriter);
+		return stringWriter.getBuffer().toString();
 	}
 }

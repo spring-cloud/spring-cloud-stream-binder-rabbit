@@ -25,6 +25,7 @@ import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.stream.binder.rabbit.RabbitMessageChannelBinder;
+import org.springframework.cloud.stream.binder.rabbit.RabbitMessageChannelErrorConfigurer;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitBinderConfigurationProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitExtendedBindingProperties;
 import org.springframework.cloud.stream.binder.rabbit.provisioning.RabbitExchangeQueueProvisioner;
@@ -39,6 +40,7 @@ import org.springframework.integration.codec.Codec;
  * Configuration class for RabbitMQ message channel binder.
  *
  * @author David Turanski
+ * @author Vinicius Carvalho
  */
 
 @Configuration
@@ -64,7 +66,7 @@ public class RabbitMessageChannelBinderConfiguration {
 	@Bean
 	RabbitMessageChannelBinder rabbitMessageChannelBinder() {
 		RabbitMessageChannelBinder binder = new RabbitMessageChannelBinder(rabbitConnectionFactory, rabbitProperties,
-				provisioningProvider());
+				provisioningProvider(),errorConfigurer());
 		binder.setCodec(codec);
 		binder.setAdminAddresses(rabbitBinderConfigurationProperties.getAdminAddresses());
 		binder.setCompressingPostProcessor(gZipPostProcessor());
@@ -89,6 +91,11 @@ public class RabbitMessageChannelBinderConfiguration {
 	@Bean
 	RabbitExchangeQueueProvisioner provisioningProvider() {
 		return new RabbitExchangeQueueProvisioner(rabbitConnectionFactory);
+	}
+
+	@Bean
+	RabbitMessageChannelErrorConfigurer errorConfigurer(){
+		return new RabbitMessageChannelErrorConfigurer(rabbitConnectionFactory);
 	}
 }
 

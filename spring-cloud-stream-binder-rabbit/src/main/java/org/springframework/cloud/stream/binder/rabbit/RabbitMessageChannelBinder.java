@@ -21,10 +21,7 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
-import org.springframework.amqp.AmqpRejectAndDontRequeueException;
-import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -34,9 +31,6 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.core.support.BatchingStrategy;
 import org.springframework.amqp.rabbit.core.support.SimpleBatchingStrategy;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
-import org.springframework.amqp.rabbit.listener.exception.ListenerExecutionFailedException;
-import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
-import org.springframework.amqp.rabbit.retry.RepublishMessageRecoverer;
 import org.springframework.amqp.rabbit.support.DefaultMessagePropertiesConverter;
 import org.springframework.amqp.rabbit.support.MessagePropertiesConverter;
 import org.springframework.amqp.support.postprocessor.DelegatingDecompressingPostProcessor;
@@ -50,7 +44,6 @@ import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.ExtendedPropertiesBinder;
-import org.springframework.cloud.stream.binder.rabbit.properties.RabbitCommonProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitConsumerProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitExtendedBindingProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitProducerProperties;
@@ -60,15 +53,11 @@ import org.springframework.cloud.stream.provisioning.ProducerDestination;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.amqp.outbound.AmqpOutboundEndpoint;
-import org.springframework.integration.amqp.support.AmqpMessageHeaderErrorMessageStrategy;
 import org.springframework.integration.amqp.support.DefaultAmqpHeaderMapper;
 import org.springframework.integration.context.IntegrationContextUtils;
 import org.springframework.integration.core.MessageProducer;
-import org.springframework.integration.support.ErrorMessageStrategy;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
-import org.springframework.messaging.MessagingException;
-import org.springframework.messaging.support.ErrorMessage;
 import org.springframework.retry.RetryPolicy;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.policy.SimpleRetryPolicy;
@@ -89,6 +78,7 @@ import com.rabbitmq.client.Envelope;
  * @author Ilayaperumal Gopinathan
  * @author David Turanski
  * @author Marius Bogoevici
+ * @author Vinicius Carvalho
  */
 public class RabbitMessageChannelBinder
 		extends AbstractMessageChannelBinder<ExtendedConsumerProperties<RabbitConsumerProperties>,
@@ -278,14 +268,7 @@ public class RabbitMessageChannelBinder
 		return adapter;
 	}
 
-	private String deadLetterExchangeName(RabbitCommonProperties properties) {
-		if (properties.getDeadLetterExchange() == null) {
-			return applyPrefix(properties.getPrefix(), RabbitCommonProperties.DEAD_LETTER_EXCHANGE);
-		}
-		else {
-			return properties.getDeadLetterExchange();
-		}
-	}
+
 
 	@Override
 	protected void afterUnbindConsumer(ConsumerDestination consumerDestination, String group,
@@ -333,13 +316,11 @@ public class RabbitMessageChannelBinder
 		}
 		rabbitTemplate.afterPropertiesSet();
 		return rabbitTemplate;
+
 	}
 
-	private String getStackTraceAsString(Throwable cause) {
-		StringWriter stringWriter = new StringWriter();
-		PrintWriter printWriter = new PrintWriter(stringWriter, true);
-		cause.printStackTrace(printWriter);
-		return stringWriter.getBuffer().toString();
+	RabbitMessageChannelErrorConfigurer getErrorConfigurer(){
+		return (RabbitMessageChannelErrorConfigurer) this.errorConfigurer;
 	}
 
 }

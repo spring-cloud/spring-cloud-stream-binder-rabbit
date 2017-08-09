@@ -118,7 +118,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 				}
 			}
 		}
-		return new RabbitProducerDestination(exchange, binding);
+		return new RabbitProducerDestination(exchange, binding,producerProperties);
 	}
 
 	@Override
@@ -165,7 +165,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 			autoBindDLQ(applyPrefix(properties.getExtension().getPrefix(), baseQueueName), queueName,
 					properties.getExtension());
 		}
-		return new RabbitConsumerDestination(queue, binding);
+		return new RabbitConsumerDestination(queue, binding, properties);
 	}
 
 	/**
@@ -468,10 +468,13 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 
 		private final Binding binding;
 
-		RabbitProducerDestination(Exchange exchange, Binding binding) {
+		private final ExtendedProducerProperties<RabbitProducerProperties> properties;
+
+		RabbitProducerDestination(Exchange exchange, Binding binding, ExtendedProducerProperties<RabbitProducerProperties> properties) {
 			Assert.notNull(exchange, "exchange must not be null");
 			this.exchange = exchange;
 			this.binding = binding;
+			this.properties = properties;
 		}
 
 		@Override
@@ -481,7 +484,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 
 		@Override
 		public ExtendedProducerProperties<RabbitProducerProperties> getProperties() {
-			return null;
+			return this.properties;
 		}
 
 
@@ -503,11 +506,13 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 
 		private final Queue queue;
 		private final Binding binding;
+		private final ExtendedConsumerProperties<RabbitConsumerProperties> properties;
 
-		RabbitConsumerDestination(Queue queue, Binding binding) {
+		RabbitConsumerDestination(Queue queue, Binding binding, ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
 			Assert.notNull(queue, "queue must not be null");
 			this.queue = queue;
 			this.binding = binding;
+			this.properties = properties;
 		}
 
 		@Override
@@ -525,7 +530,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 
 		@Override
 		public ExtendedConsumerProperties<RabbitConsumerProperties> getProperties() {
-			return null;
+			return this.properties;
 		}
 
 	}
