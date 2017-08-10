@@ -79,7 +79,6 @@ import org.springframework.messaging.support.GenericMessage;
 import org.springframework.retry.support.RetryTemplate;
 
 import com.rabbitmq.http.client.domain.QueueInfo;
-import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.spy;

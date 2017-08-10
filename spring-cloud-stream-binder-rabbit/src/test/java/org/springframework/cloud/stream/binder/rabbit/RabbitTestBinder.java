@@ -19,7 +19,6 @@ package org.springframework.cloud.stream.binder.rabbit;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.mockito.Mockito;
 
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;

@@ -16,8 +16,6 @@
 
 package org.springframework.cloud.stream.binder.rabbit;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
