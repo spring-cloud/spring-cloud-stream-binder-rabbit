@@ -13,14 +13,12 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.exception.ListenerExecutionFailedException;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.rabbit.retry.RepublishMessageRecoverer;
-import org.springframework.cloud.stream.binder.AbstractMessageChannelErrorConfigurer;
 import org.springframework.cloud.stream.binder.Binding;
-import org.springframework.cloud.stream.binder.ConsumerBinding;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.MessageProducerBinding;
-import org.springframework.cloud.stream.binder.ProducerBinding;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitCommonProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitConsumerProperties;
+import org.springframework.cloud.stream.error.AbstractMessageChannelErrorConfigurer;
 import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.amqp.support.AmqpMessageHeaderErrorMessageStrategy;
@@ -34,7 +32,7 @@ import org.springframework.messaging.support.ErrorMessage;
  * @author Vinicius Carvalho
  * @author Gary Russel
  */
-public class RabbitMessageChannelErrorConfigurer extends AbstractMessageChannelErrorConfigurer <ExtendedConsumerProperties<RabbitConsumerProperties>>{
+public class RabbitMessageChannelErrorConfigurer extends AbstractMessageChannelErrorConfigurer<ExtendedConsumerProperties<RabbitConsumerProperties>> {
 
 	private static final AmqpMessageHeaderErrorMessageStrategy errorMessageStrategy =
 			new AmqpMessageHeaderErrorMessageStrategy();

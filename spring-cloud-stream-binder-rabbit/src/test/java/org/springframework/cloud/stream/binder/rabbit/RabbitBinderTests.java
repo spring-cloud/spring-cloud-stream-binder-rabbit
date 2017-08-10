@@ -49,7 +49,6 @@ import org.springframework.amqp.support.postprocessor.DelegatingDecompressingPos
 import org.springframework.amqp.utils.test.TestUtils;
 import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
-import org.springframework.cloud.stream.binder.BinderErrorConfigurer;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.binder.Binding;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
@@ -141,8 +140,10 @@ public class RabbitBinderTests extends
 		DirectChannel moduleInputChannel = createBindableChannel("input", new BindingProperties());
 		Binding<MessageChannel> producerBinding = binder.bindProducer("bad.0", moduleOutputChannel,
 				createProducerProperties());
+		producerBinding.bind();
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("bad.0", "test", moduleInputChannel,
 				createConsumerProperties());
+		consumerBinding.bind();
 		Message<?> message = MessageBuilder.withPayload("bad").setHeader(MessageHeaders.CONTENT_TYPE, "foo/bar")
 				.build();
 		final CountDownLatch latch = new CountDownLatch(3);
@@ -169,6 +170,7 @@ public class RabbitBinderTests extends
 		properties.getExtension().setExclusive(true);
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("props.0", null,
 				createBindableChannel("input", new BindingProperties()), properties);
+		consumerBinding.bind();
 		Lifecycle endpoint = extractEndpoint(consumerBinding);
 		SimpleMessageListenerContainer container = TestUtils.getPropertyValue(endpoint, "messageListenerContainer",
 				SimpleMessageListenerContainer.class);
@@ -204,7 +206,7 @@ public class RabbitBinderTests extends
 		properties.setInstanceIndex(0);
 		consumerBinding = binder.bindConsumer("props.0", "test", createBindableChannel("input", new BindingProperties()),
 				properties);
-
+		consumerBinding.bind();
 		endpoint = extractEndpoint(consumerBinding);
 		container = verifyContainer(endpoint);
 
@@ -230,6 +232,7 @@ public class RabbitBinderTests extends
 
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("propsUser1", "infra",
 				createBindableChannel("input", new BindingProperties()), properties);
+		consumerBinding.bind();
 		Lifecycle endpoint = extractEndpoint(consumerBinding);
 		SimpleMessageListenerContainer container = TestUtils.getPropertyValue(endpoint, "messageListenerContainer",
 				SimpleMessageListenerContainer.class);
@@ -251,6 +254,7 @@ public class RabbitBinderTests extends
 
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("propsUser2", "infra",
 				createBindableChannel("input", new BindingProperties()), properties);
+		consumerBinding.bind();
 		Lifecycle endpoint = extractEndpoint(consumerBinding);
 		SimpleMessageListenerContainer container = TestUtils.getPropertyValue(endpoint, "messageListenerContainer",
 				SimpleMessageListenerContainer.class);
@@ -315,6 +319,7 @@ public class RabbitBinderTests extends
 
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("propsUser3", "infra",
 				createBindableChannel("input", new BindingProperties()), properties);
+		consumerBinding.bind();
 		Lifecycle endpoint = extractEndpoint(consumerBinding);
 		SimpleMessageListenerContainer container = TestUtils.getPropertyValue(endpoint, "messageListenerContainer",
 				SimpleMessageListenerContainer.class);
@@ -386,6 +391,7 @@ public class RabbitBinderTests extends
 		Binding<MessageChannel> producerBinding = binder.bindProducer("props.0",
 				createBindableChannel("input", new BindingProperties()),
 				createProducerProperties());
+		producerBinding.bind();
 		Lifecycle endpoint = extractEndpoint(producerBinding);
 		MessageDeliveryMode mode = TestUtils.getPropertyValue(endpoint, "defaultDeliveryMode",
 				MessageDeliveryMode.class);
@@ -415,6 +421,7 @@ public class RabbitBinderTests extends
 		DirectChannel channel = createBindableChannel("output", producerBindingProperties);
 		producerBinding = binder.bindProducer("props.0", channel,
 				producerProperties);
+		producerBinding.bind();
 		endpoint = extractEndpoint(producerBinding);
 		assertThat(getEndpointRouting(endpoint))
 				.isEqualTo("'props.0-' + headers['" + BinderHeaders.PARTITION_HEADER + "']");
@@ -458,7 +465,7 @@ public class RabbitBinderTests extends
 		});
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("durabletest.0", "tgroup", moduleInputChannel,
 				consumerProperties);
-
+		consumerBinding.bind();
 		RabbitTemplate template = new RabbitTemplate(this.rabbitAvailableRule.getResource());
 		template.convertAndSend(TEST_PREFIX + "durabletest.0", "", "foo");
 
@@ -500,7 +507,7 @@ public class RabbitBinderTests extends
 		});
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("nondurabletest.0", "tgroup", moduleInputChannel,
 				consumerProperties);
-
+		consumerBinding.bind();
 		consumerBinding.unbind();
 		assertThat(admin.getQueueProperties(TEST_PREFIX + "nondurabletest.0.dlq")).isNull();
 	}
@@ -526,7 +533,7 @@ public class RabbitBinderTests extends
 		});
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("dlqtest", "default", moduleInputChannel,
 				consumerProperties);
-
+		consumerBinding.bind();
 		RabbitTemplate template = new RabbitTemplate(this.rabbitAvailableRule.getResource());
 		template.convertAndSend("", TEST_PREFIX + "dlqtest.default", "foo");
 
@@ -563,15 +570,18 @@ public class RabbitBinderTests extends
 		DirectChannel input0 = createBindableChannel("input", createConsumerBindingProperties(properties));
 		input0.setBeanName("test.input0DLQ");
 		Binding<MessageChannel> input0Binding = binder.bindConsumer("partDLQ.0", "dlqPartGrp", input0, properties);
+		input0Binding.bind();
 		Binding<MessageChannel> defaultConsumerBinding1 = binder.bindConsumer("partDLQ.0", "default",
 				new QueueChannel(), properties);
 		properties.setInstanceIndex(1);
+		defaultConsumerBinding1.bind();
 		DirectChannel input1 = createBindableChannel("input1", createConsumerBindingProperties(properties));
 		input1.setBeanName("test.input1DLQ");
 		Binding<MessageChannel> input1Binding = binder.bindConsumer("partDLQ.0", "dlqPartGrp", input1, properties);
+		input1Binding.bind();
 		Binding<MessageChannel> defaultConsumerBinding2 = binder.bindConsumer("partDLQ.0", "default",
 				new QueueChannel(), properties);
-
+		defaultConsumerBinding2.bind();
 		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setPrefix("bindertest.");
 		producerProperties.getExtension().setAutoBindDlq(true);
@@ -582,7 +592,7 @@ public class RabbitBinderTests extends
 		DirectChannel output = createBindableChannel("output", bindingProperties);
 		output.setBeanName("test.output");
 		Binding<MessageChannel> outputBinding = binder.bindProducer("partDLQ.0", output, producerProperties);
-
+		outputBinding.bind();
 		final CountDownLatch latch0 = new CountDownLatch(1);
 		input0.subscribe(new MessageHandler() {
 
@@ -665,15 +675,18 @@ public class RabbitBinderTests extends
 		DirectChannel input0 = createBindableChannel("input", createConsumerBindingProperties(properties));
 		input0.setBeanName("test.input0DLQ");
 		Binding<MessageChannel> input0Binding = binder.bindConsumer("partPubDLQ.0", "dlqPartGrp", input0, properties);
+		input0Binding.bind();
 		Binding<MessageChannel> defaultConsumerBinding1 = binder.bindConsumer("partPubDLQ.0", "default",
 				new QueueChannel(), properties);
+		defaultConsumerBinding1.bind();
 		properties.setInstanceIndex(1);
 		DirectChannel input1 = createBindableChannel("input1", createConsumerBindingProperties(properties));
 		input1.setBeanName("test.input1DLQ");
 		Binding<MessageChannel> input1Binding = binder.bindConsumer("partPubDLQ.0", "dlqPartGrp", input1, properties);
+		input1Binding.bind();
 		Binding<MessageChannel> defaultConsumerBinding2 = binder.bindConsumer("partPubDLQ.0", "default",
 				new QueueChannel(), properties);
-
+		defaultConsumerBinding2.bind();
 		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setPrefix("bindertest.");
 		producerProperties.getExtension().setAutoBindDlq(true);
@@ -684,7 +697,7 @@ public class RabbitBinderTests extends
 		DirectChannel output = createBindableChannel("output", bindingProperties);
 		output.setBeanName("test.output");
 		Binding<MessageChannel> outputBinding = binder.bindProducer("partPubDLQ.0", output, producerProperties);
-
+		outputBinding.bind();
 		final CountDownLatch latch0 = new CountDownLatch(1);
 		input0.subscribe(new MessageHandler() {
 
@@ -792,7 +805,7 @@ public class RabbitBinderTests extends
 		DirectChannel output = createBindableChannel("output", createProducerBindingProperties(properties));
 		output.setBeanName("test.output");
 		Binding<MessageChannel> outputBinding = binder.bindProducer("partDLQ.1", output, properties);
-
+		outputBinding.bind();
 		ExtendedConsumerProperties<RabbitConsumerProperties> consumerProperties = createConsumerProperties();
 		consumerProperties.getExtension().setPrefix("bindertest.");
 		consumerProperties.getExtension().setAutoBindDlq(true);
@@ -803,16 +816,19 @@ public class RabbitBinderTests extends
 		input0.setBeanName("test.input0DLQ");
 		Binding<MessageChannel> input0Binding = binder.bindConsumer("partDLQ.1", "dlqPartGrp", input0,
 				consumerProperties);
+		input0Binding.bind();
 		Binding<MessageChannel> defaultConsumerBinding1 = binder.bindConsumer("partDLQ.1", "defaultConsumer",
 				new QueueChannel(), consumerProperties);
+		defaultConsumerBinding1.bind();
 		consumerProperties.setInstanceIndex(1);
 		DirectChannel input1 = createBindableChannel("input1", createConsumerBindingProperties(consumerProperties));
 		input1.setBeanName("test.input1DLQ");
 		Binding<MessageChannel> input1Binding = binder.bindConsumer("partDLQ.1", "dlqPartGrp", input1,
 				consumerProperties);
+		input1Binding.bind();
 		Binding<MessageChannel> defaultConsumerBinding2 = binder.bindConsumer("partDLQ.1", "defaultConsumer",
 				new QueueChannel(), consumerProperties);
-
+		defaultConsumerBinding2.bind();
 		final CountDownLatch latch0 = new CountDownLatch(1);
 		input0.subscribe(new MessageHandler() {
 
@@ -902,7 +918,7 @@ public class RabbitBinderTests extends
 		});
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("foo.dlqpubtest", "foo", moduleInputChannel,
 				consumerProperties);
-
+		consumerBinding.bind();
 		RabbitTemplate template = new RabbitTemplate(this.rabbitAvailableRule.getResource());
 		template.convertAndSend("", TEST_PREFIX + "foo.dlqpubtest.foo", "foo");
 
@@ -937,7 +953,7 @@ public class RabbitBinderTests extends
 		DirectChannel output = createBindableChannel("input", createProducerBindingProperties(producerProperties));
 		output.setBeanName("batchingProducer");
 		Binding<MessageChannel> producerBinding = binder.bindProducer("batching.0", output, producerProperties);
-
+		producerBinding.bind();
 		Log logger = spy(TestUtils.getPropertyValue(binder, "binder.compressingPostProcessor.logger", Log.class));
 		new DirectFieldAccessor(TestUtils.getPropertyValue(binder, "binder.compressingPostProcessor"))
 				.setPropertyValue("logger", logger);
@@ -961,7 +977,7 @@ public class RabbitBinderTests extends
 		input.setBeanName("batchingConsumer");
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("batching.0", "test", input,
 				createConsumerProperties());
-
+		consumerBinding.bind();
 		output.send(new GenericMessage<>("foo".getBytes()));
 		output.send(new GenericMessage<>("bar".getBytes()));
 
@@ -996,13 +1012,13 @@ public class RabbitBinderTests extends
 
 		MessageChannel moduleOutputChannel = createBindableChannel("output", createProducerBindingProperties(producerProperties));
 		Binding<MessageChannel> late0ProducerBinding = binder.bindProducer("late.0", moduleOutputChannel, producerProperties);
-
+		late0ProducerBinding.bind();
 		QueueChannel moduleInputChannel = new QueueChannel();
 		ExtendedConsumerProperties<RabbitConsumerProperties> rabbitConsumerProperties = createConsumerProperties();
 		rabbitConsumerProperties.getExtension().setPrefix("latebinder.");
 		Binding<MessageChannel> late0ConsumerBinding = binder.bindConsumer("late.0", "test", moduleInputChannel,
 				rabbitConsumerProperties);
-
+		late0ConsumerBinding.bind();
 		producerProperties.setPartitionKeyExpression(spelExpressionParser.parseExpression("payload.equals('0') ? 0 : 1"));
 		producerProperties.setPartitionSelectorExpression(spelExpressionParser.parseExpression("hashCode()"));
 		producerProperties.setPartitionCount(2);
@@ -1010,7 +1026,7 @@ public class RabbitBinderTests extends
 		MessageChannel partOutputChannel = createBindableChannel("output", createProducerBindingProperties(producerProperties));
 		Binding<MessageChannel> partlate0ProducerBinding = binder.bindProducer("partlate.0", partOutputChannel,
 				producerProperties);
-
+		partlate0ProducerBinding.bind();
 		QueueChannel partInputChannel0 = new QueueChannel();
 		QueueChannel partInputChannel1 = new QueueChannel();
 
@@ -1020,22 +1036,24 @@ public class RabbitBinderTests extends
 		partLateConsumerProperties.setInstanceIndex(0);
 		Binding<MessageChannel> partlate0Consumer0Binding = binder.bindConsumer("partlate.0", "test", partInputChannel0,
 				partLateConsumerProperties);
+		partlate0Consumer0Binding.bind();
 		partLateConsumerProperties.setInstanceIndex(1);
 		Binding<MessageChannel> partlate0Consumer1Binding = binder.bindConsumer("partlate.0", "test", partInputChannel1,
 				partLateConsumerProperties);
-
+		partlate0Consumer1Binding.bind();
 		ExtendedProducerProperties<RabbitProducerProperties> noDlqProducerProperties = createProducerProperties();
 		noDlqProducerProperties.getExtension().setPrefix("latebinder.");
 		MessageChannel noDLQOutputChannel = createBindableChannel("output",
 				createProducerBindingProperties(noDlqProducerProperties));
 		Binding<MessageChannel> noDlqProducerBinding = binder.bindProducer("lateNoDLQ.0", noDLQOutputChannel,
 				noDlqProducerProperties);
-
+		noDlqProducerBinding.bind();
 		QueueChannel noDLQInputChannel = new QueueChannel();
 		ExtendedConsumerProperties<RabbitConsumerProperties> noDlqConsumerProperties = createConsumerProperties();
 		noDlqConsumerProperties.getExtension().setPrefix("latebinder.");
 		Binding<MessageChannel> noDlqConsumerBinding = binder.bindConsumer("lateNoDLQ.0", "test", noDLQInputChannel,
 				noDlqConsumerProperties);
+		noDlqConsumerBinding.bind();
 
 		MessageChannel outputChannel = createBindableChannel("output", createProducerBindingProperties(noDlqProducerProperties));
 		Binding<MessageChannel> pubSubProducerBinding = binder.bindProducer("latePubSub", outputChannel,
@@ -1044,11 +1062,12 @@ public class RabbitBinderTests extends
 		noDlqConsumerProperties.getExtension().setDurableSubscription(false);
 		Binding<MessageChannel> nonDurableConsumerBinding = binder.bindConsumer("latePubSub", "lategroup",
 				pubSubInputChannel, noDlqConsumerProperties);
+		nonDurableConsumerBinding.bind();
 		QueueChannel durablePubSubInputChannel = new QueueChannel();
 		noDlqConsumerProperties.getExtension().setDurableSubscription(true);
 		Binding<MessageChannel> durableConsumerBinding = binder.bindConsumer("latePubSub", "lateDurableGroup",
 				durablePubSubInputChannel, noDlqConsumerProperties);
-
+		durableConsumerBinding.bind();
 		proxy.start();
 
 		moduleOutputChannel.send(new GenericMessage<>("foo"));

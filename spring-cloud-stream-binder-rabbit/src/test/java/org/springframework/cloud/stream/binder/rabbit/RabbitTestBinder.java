@@ -25,7 +25,6 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.cloud.stream.binder.AbstractTestBinder;
-import org.springframework.cloud.stream.binder.BinderErrorConfigurer;
 import org.springframework.cloud.stream.binder.Binding;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;

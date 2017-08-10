@@ -39,7 +39,6 @@ import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties.Retry;
 import org.springframework.cloud.stream.binder.AbstractMessageChannelBinder;
-import org.springframework.cloud.stream.binder.BinderErrorConfigurer;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
@@ -48,6 +47,7 @@ import org.springframework.cloud.stream.binder.rabbit.properties.RabbitConsumerP
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitExtendedBindingProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitProducerProperties;
 import org.springframework.cloud.stream.binder.rabbit.provisioning.RabbitExchangeQueueProvisioner;
+import org.springframework.cloud.stream.error.BinderErrorConfigurer;
 import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.cloud.stream.provisioning.ProducerDestination;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
