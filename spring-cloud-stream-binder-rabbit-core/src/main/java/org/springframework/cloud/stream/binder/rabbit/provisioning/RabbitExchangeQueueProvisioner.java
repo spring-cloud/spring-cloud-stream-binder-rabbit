@@ -118,7 +118,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 				}
 			}
 		}
-		return new RabbitProducerDestination(exchange, binding);
+		return new RabbitProducerDestination(exchange, binding,producerProperties);
 	}
 
 	@Override
@@ -165,7 +165,7 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 			autoBindDLQ(applyPrefix(properties.getExtension().getPrefix(), baseQueueName), queueName,
 					properties.getExtension());
 		}
-		return new RabbitConsumerDestination(queue, binding);
+		return new RabbitConsumerDestination(queue, binding, properties);
 	}
 
 	/**
@@ -462,22 +462,31 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		}
 	}
 
-	private static final class RabbitProducerDestination implements ProducerDestination {
+	private static final class RabbitProducerDestination implements ProducerDestination<ExtendedProducerProperties<RabbitProducerProperties>> {
 
 		private final Exchange exchange;
 
 		private final Binding binding;
 
-		RabbitProducerDestination(Exchange exchange, Binding binding) {
+		private final ExtendedProducerProperties<RabbitProducerProperties> properties;
+
+		RabbitProducerDestination(Exchange exchange, Binding binding, ExtendedProducerProperties<RabbitProducerProperties> properties) {
 			Assert.notNull(exchange, "exchange must not be null");
 			this.exchange = exchange;
 			this.binding = binding;
+			this.properties = properties;
 		}
 
 		@Override
 		public String getName() {
 			return this.exchange.getName();
 		}
+
+		@Override
+		public ExtendedProducerProperties<RabbitProducerProperties> getProperties() {
+			return this.properties;
+		}
+
 
 		@Override
 		public String getNameForPartition(int partition) {
@@ -493,15 +502,17 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		}
 	}
 
-	private static final class RabbitConsumerDestination implements ConsumerDestination {
+	private static final class RabbitConsumerDestination implements ConsumerDestination<ExtendedConsumerProperties<RabbitConsumerProperties>> {
 
 		private final Queue queue;
 		private final Binding binding;
+		private final ExtendedConsumerProperties<RabbitConsumerProperties> properties;
 
-		RabbitConsumerDestination(Queue queue, Binding binding) {
+		RabbitConsumerDestination(Queue queue, Binding binding, ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
 			Assert.notNull(queue, "queue must not be null");
 			this.queue = queue;
 			this.binding = binding;
+			this.properties = properties;
 		}
 
 		@Override
@@ -516,6 +527,12 @@ public class RabbitExchangeQueueProvisioner implements ProvisioningProvider<Exte
 		public String getName() {
 			return this.queue.getName();
 		}
+
+		@Override
+		public ExtendedConsumerProperties<RabbitConsumerProperties> getProperties() {
+			return this.properties;
+		}
+
 	}
 
 }

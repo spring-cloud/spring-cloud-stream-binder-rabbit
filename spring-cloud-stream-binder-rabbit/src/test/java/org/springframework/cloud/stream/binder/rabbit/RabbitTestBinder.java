@@ -19,6 +19,7 @@ package org.springframework.cloud.stream.binder.rabbit;
 import java.util.HashSet;
 import java.util.Set;
 
+
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
@@ -56,8 +57,9 @@ public class RabbitTestBinder extends AbstractTestBinder<RabbitMessageChannelBin
 	private final Set<String> exchanges = new HashSet<String>();
 
 	public RabbitTestBinder(ConnectionFactory connectionFactory, RabbitProperties rabbitProperties) {
+
 		this(connectionFactory, new RabbitMessageChannelBinder(connectionFactory, rabbitProperties,
-				new RabbitExchangeQueueProvisioner(connectionFactory)));
+				new RabbitExchangeQueueProvisioner(connectionFactory), new RabbitMessageChannelErrorConfigurer(connectionFactory)));
 	}
 
 	public RabbitTestBinder(ConnectionFactory connectionFactory, RabbitMessageChannelBinder binder) {
@@ -72,6 +74,7 @@ public class RabbitTestBinder extends AbstractTestBinder<RabbitMessageChannelBin
 		context.refresh();
 		binder.setApplicationContext(context);
 		binder.setCodec(new PojoCodec());
+		binder.getErrorConfigurer().setApplicationContext(context);
 		this.setBinder(binder);
 		this.rabbitAdmin = new RabbitAdmin(connectionFactory);
 	}
