@@ -45,23 +45,6 @@ public class RabbitMessageChannelErrorConfigurer extends AbstractMessageChannelE
 
 
 
-	@Override
-	public void configure(Binding<MessageChannel> binding) {
-		MessageProducerBinding consumerBinding = (MessageProducerBinding) binding;
-		ExtendedConsumerProperties<RabbitConsumerProperties> properties = (ExtendedConsumerProperties<RabbitConsumerProperties>)consumerBinding.getDestination().getProperties();
-		AmqpInboundChannelAdapter adapter = (AmqpInboundChannelAdapter)consumerBinding.getMessageProducer();
-		ErrorInfrastructure errorInfrastructure = getErrorInfrastructure(consumerBinding.getDestination().getName());
-		if (properties.getMaxAttempts() > 1) {
-			adapter.setRetryTemplate(buildRetryTemplate(properties));
-			if (properties.getExtension().isRepublishToDlq()) {
-				adapter.setRecoveryCallback(errorInfrastructure.getRecoverer());
-			}
-		}
-		else {
-			adapter.setErrorMessageStrategy(getErrorMessageStrategy());
-			adapter.setErrorChannel(errorInfrastructure.getErrorChannel());
-		}
-	}
 
 	@Override
 	protected MessageHandler getErrorMessageHandler(ConsumerDestination destination, String group, final ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
@@ -146,6 +129,24 @@ public class RabbitMessageChannelErrorConfigurer extends AbstractMessageChannelE
 		}
 		else {
 			return properties.getDeadLetterExchange();
+		}
+	}
+
+	@Override
+	protected void configure(Binding<MessageChannel> binding, String group) {
+		MessageProducerBinding consumerBinding = (MessageProducerBinding) binding;
+		ExtendedConsumerProperties<RabbitConsumerProperties> properties = (ExtendedConsumerProperties<RabbitConsumerProperties>)consumerBinding.getDestination().getProperties();
+		AmqpInboundChannelAdapter adapter = (AmqpInboundChannelAdapter)consumerBinding.getMessageProducer();
+		ErrorInfrastructure errorInfrastructure = getErrorInfrastructure(consumerBinding.getDestination().getName());
+		if (properties.getMaxAttempts() > 1) {
+			adapter.setRetryTemplate(buildRetryTemplate(properties));
+			if (properties.getExtension().isRepublishToDlq()) {
+				adapter.setRecoveryCallback(errorInfrastructure.getRecoverer());
+			}
+		}
+		else {
+			adapter.setErrorMessageStrategy(getErrorMessageStrategy());
+			adapter.setErrorChannel(errorInfrastructure.getErrorChannel());
 		}
 	}
 
