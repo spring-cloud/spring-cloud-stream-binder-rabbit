@@ -1183,8 +1183,7 @@ public class RabbitBinderTests extends
 	@Test
 	public void testBadUserDeclarationsFatal() {
 		RabbitTestBinder binder = getBinder();
-		ConfigurableApplicationContext context = TestUtils.getPropertyValue(binder, "binder.applicationContext",
-				ConfigurableApplicationContext.class);
+		ConfigurableApplicationContext context = binder.getApplicationContext();
 		ConfigurableListableBeanFactory bf = context.getBeanFactory();
 		bf.registerSingleton("testBadUserDeclarationsFatal", new Queue("testBadUserDeclarationsFatal", false));
 		bf.registerSingleton("binder", binder);
