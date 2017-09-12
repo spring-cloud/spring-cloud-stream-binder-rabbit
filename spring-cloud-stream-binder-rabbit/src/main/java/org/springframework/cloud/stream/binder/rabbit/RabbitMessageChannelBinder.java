@@ -16,14 +16,18 @@
 
 package org.springframework.cloud.stream.binder.rabbit;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.core.MessageProperties;
-import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.LocalizedQueueConnectionFactory;
 import org.springframework.amqp.rabbit.core.BatchingRabbitTemplate;
@@ -31,14 +35,16 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.core.support.BatchingStrategy;
 import org.springframework.amqp.rabbit.core.support.SimpleBatchingStrategy;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
-import org.springframework.amqp.rabbit.retry.MessageRecoverer;
+import org.springframework.amqp.rabbit.listener.exception.ListenerExecutionFailedException;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.rabbit.retry.RepublishMessageRecoverer;
 import org.springframework.amqp.rabbit.support.DefaultMessagePropertiesConverter;
 import org.springframework.amqp.rabbit.support.MessagePropertiesConverter;
 import org.springframework.amqp.support.postprocessor.DelegatingDecompressingPostProcessor;
 import org.springframework.amqp.support.postprocessor.GZipPostProcessor;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
+import org.springframework.boot.autoconfigure.amqp.RabbitProperties.Retry;
 import org.springframework.cloud.stream.binder.AbstractMessageChannelBinder;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
@@ -54,12 +60,20 @@ import org.springframework.cloud.stream.provisioning.ProducerDestination;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.amqp.outbound.AmqpOutboundEndpoint;
+import org.springframework.integration.amqp.support.AmqpMessageHeaderErrorMessageStrategy;
 import org.springframework.integration.amqp.support.DefaultAmqpHeaderMapper;
 import org.springframework.integration.context.IntegrationContextUtils;
 import org.springframework.integration.core.MessageProducer;
+import org.springframework.integration.support.DefaultErrorMessageStrategy;
+import org.springframework.integration.support.ErrorMessageStrategy;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
-import org.springframework.retry.interceptor.RetryOperationsInterceptor;
+import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.support.ErrorMessage;
+import org.springframework.retry.RetryPolicy;
+import org.springframework.retry.backoff.ExponentialBackOffPolicy;
+import org.springframework.retry.policy.SimpleRetryPolicy;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
@@ -81,6 +95,9 @@ public class RabbitMessageChannelBinder
 		extends AbstractMessageChannelBinder<ExtendedConsumerProperties<RabbitConsumerProperties>,
 		ExtendedProducerProperties<RabbitProducerProperties>, RabbitExchangeQueueProvisioner>
 		implements ExtendedPropertiesBinder<MessageChannel, RabbitConsumerProperties, RabbitProducerProperties> {
+
+	private static final AmqpMessageHeaderErrorMessageStrategy errorMessageStrategy =
+			new AmqpMessageHeaderErrorMessageStrategy();
 
 	private static final MessagePropertiesConverter inboundMessagePropertiesConverter =
 			new DefaultMessagePropertiesConverter() {
@@ -179,12 +196,13 @@ public class RabbitMessageChannelBinder
 
 	@Override
 	protected MessageHandler createProducerMessageHandler(final ProducerDestination producerDestination,
-														ExtendedProducerProperties<RabbitProducerProperties> producerProperties)
-			throws Exception {
+			ExtendedProducerProperties<RabbitProducerProperties> producerProperties, MessageChannel errorChannel)
+					throws Exception {
 		String prefix = producerProperties.getExtension().getPrefix();
 		String exchangeName = producerDestination.getName();
 		String destination = StringUtils.isEmpty(prefix) ? exchangeName : exchangeName.substring(prefix.length());
-		final AmqpOutboundEndpoint endpoint = new AmqpOutboundEndpoint(buildRabbitTemplate(producerProperties.getExtension()));
+		final AmqpOutboundEndpoint endpoint = new AmqpOutboundEndpoint(
+				buildRabbitTemplate(producerProperties.getExtension(), errorChannel != null));
 		endpoint.setExchangeName(producerDestination.getName());
 		RabbitProducerProperties extendedProperties = producerProperties.getExtension();
 		String routingKeyExpression = extendedProperties.getRoutingKeyExpression();
@@ -215,8 +233,37 @@ public class RabbitMessageChannelBinder
 		endpoint.setHeaderMapper(mapper);
 		endpoint.setDefaultDeliveryMode(extendedProperties.getDeliveryMode());
 		endpoint.setBeanFactory(this.getBeanFactory());
+		if (errorChannel != null) {
+			checkConnectionFactoryIsErrorCapable();
+			endpoint.setReturnChannel(errorChannel);
+			endpoint.setConfirmNackChannel(errorChannel);
+			endpoint.setConfirmCorrelationExpressionString("#root");
+			endpoint.setErrorMessageStrategy(new DefaultErrorMessageStrategy());
+		}
 		endpoint.afterPropertiesSet();
 		return endpoint;
+	}
+
+	private void checkConnectionFactoryIsErrorCapable() {
+		if (!(this.connectionFactory instanceof CachingConnectionFactory)) {
+			logger.warn("Unknown connection factory type, cannot determine error capabilities: "
+					+ this.connectionFactory.getClass());
+		}
+		else {
+			CachingConnectionFactory ccf = (CachingConnectionFactory) this.connectionFactory;
+			if (!ccf.isPublisherConfirms() && !ccf.isPublisherReturns()) {
+				logger.warn("Producer error channel is enabled, but the connection factory is not configured for "
+						+ "returns or confirms; the error channel will receive no messages");
+			}
+			else if (!ccf.isPublisherConfirms()) {
+				logger.info("Producer error channel is enabled, but the connection factory is only configured to "
+						+ "handle returned messages; negative acks will not be reported");
+			}
+			else if (!ccf.isPublisherReturns()) {
+				logger.info("Producer error channel is enabled, but the connection factory is only configured to "
+						+ "handle negatively acked messages; returned messages will not be reported");
+			}
+		}
 	}
 
 	private String buildPartitionRoutingExpression(String expressionRoot, boolean rootIsExpression) {
@@ -228,13 +275,7 @@ public class RabbitMessageChannelBinder
 	@Override
 	protected MessageProducer createConsumerEndpoint(ConsumerDestination consumerDestination, String group,
 													ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
-
-		String prefix = properties.getExtension().getPrefix();
 		String destination = consumerDestination.getName();
-		String prefixStripped = (StringUtils.isEmpty(prefix) || !destination.startsWith(prefix)) ? destination
-				: destination.substring(prefix.length());
-		String baseQueueName = StringUtils.hasText(group) ? prefixStripped.substring(0, prefixStripped.indexOf(group)) + group : prefixStripped;
-
 		SimpleMessageListenerContainer listenerContainer = new SimpleMessageListenerContainer(
 				this.connectionFactory);
 		listenerContainer.setAcknowledgeMode(properties.getExtension().getAcknowledgeMode());
@@ -252,30 +293,123 @@ public class RabbitMessageChannelBinder
 		listenerContainer.setTxSize(properties.getExtension().getTxSize());
 		listenerContainer.setTaskExecutor(new SimpleAsyncTaskExecutor(consumerDestination.getName() + "-"));
 		listenerContainer.setQueueNames(consumerDestination.getName());
-		if (properties.getMaxAttempts() > 1 || properties.getExtension().isRepublishToDlq()) {
-			RetryOperationsInterceptor retryInterceptor = RetryInterceptorBuilder.stateless()
-					.retryOperations(buildRetryTemplate(properties))
-					.recoverer(determineRecoverer(baseQueueName, properties.getExtension()))
-					.build();
-			listenerContainer.setAdviceChain(retryInterceptor);
-		}
 		listenerContainer.setAfterReceivePostProcessors(this.decompressingPostProcessor);
 		listenerContainer.setMessagePropertiesConverter(RabbitMessageChannelBinder.inboundMessagePropertiesConverter);
+		listenerContainer.setExclusive(properties.getExtension().isExclusive());
 		listenerContainer.afterPropertiesSet();
 
 		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(listenerContainer);
 		adapter.setBeanFactory(this.getBeanFactory());
-		adapter.setBeanName("inbound." + baseQueueName);
+		adapter.setBeanName("inbound." + destination);
 		DefaultAmqpHeaderMapper mapper = DefaultAmqpHeaderMapper.inboundMapper();
 		mapper.setRequestHeaderNames(properties.getExtension().getHeaderPatterns());
 		adapter.setHeaderMapper(mapper);
-		adapter.afterPropertiesSet();
+		ErrorInfrastructure errorInfrastructure = registerErrorInfrastructure(consumerDestination, group, properties);
+		if (properties.getMaxAttempts() > 1) {
+			adapter.setRetryTemplate(buildRetryTemplate(properties));
+			if (properties.getExtension().isRepublishToDlq()) {
+				adapter.setRecoveryCallback(errorInfrastructure.getRecoverer());
+			}
+		}
+		else {
+			adapter.setErrorMessageStrategy(errorMessageStrategy);
+			adapter.setErrorChannel(errorInfrastructure.getErrorChannel());
+		}
 		return adapter;
+	}
+
+	@Override
+	protected ErrorMessageStrategy getErrorMessageStrategy() {
+		return errorMessageStrategy;
+	}
+
+	@Override
+	protected MessageHandler getErrorMessageHandler(ConsumerDestination destination, String group,
+			final ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
+		if (properties.getExtension().isRepublishToDlq()) {
+			return new MessageHandler() {
+
+				private final RabbitTemplate template = new RabbitTemplate(
+						RabbitMessageChannelBinder.this.connectionFactory);
+
+				private final String exchange = deadLetterExchangeName(properties.getExtension());
+
+				private final String routingKey = properties.getExtension().getDeadLetterRoutingKey();
+
+				@Override
+				public void handleMessage(org.springframework.messaging.Message<?> message) throws MessagingException {
+					Message amqpMessage = (Message) message.getHeaders()
+							.get(AmqpMessageHeaderErrorMessageStrategy.AMQP_RAW_MESSAGE);
+					if (!(message instanceof ErrorMessage)) {
+						logger.error("Expected an ErrorMessage, not a " + message.getClass().toString() + " for: "
+								+ message);
+					}
+					else if (amqpMessage == null) {
+						logger.error("No raw message header in " + message);
+					}
+					else {
+						Throwable cause = (Throwable) message.getPayload();
+						MessageProperties messageProperties = amqpMessage.getMessageProperties();
+						Map<String, Object> headers = messageProperties.getHeaders();
+						headers.put(RepublishMessageRecoverer.X_EXCEPTION_STACKTRACE, getStackTraceAsString(cause));
+						headers.put(RepublishMessageRecoverer.X_EXCEPTION_MESSAGE,
+								cause.getCause() != null ? cause.getCause().getMessage() : cause.getMessage());
+						headers.put(RepublishMessageRecoverer.X_ORIGINAL_EXCHANGE,
+								messageProperties.getReceivedExchange());
+						headers.put(RepublishMessageRecoverer.X_ORIGINAL_ROUTING_KEY,
+								messageProperties.getReceivedRoutingKey());
+						if (properties.getExtension().getRepublishDeliveyMode() != null) {
+							messageProperties.setDeliveryMode(properties.getExtension().getRepublishDeliveyMode());
+						}
+						template.send(this.exchange,
+								this.routingKey != null ? this.routingKey : messageProperties.getConsumerQueue(),
+								amqpMessage);
+					}
+				}
+
+			};
+		}
+		else if (properties.getMaxAttempts() > 1) {
+			return new MessageHandler() {
+
+				private final RejectAndDontRequeueRecoverer recoverer = new RejectAndDontRequeueRecoverer();
+
+				@Override
+				public void handleMessage(org.springframework.messaging.Message<?> message) throws MessagingException {
+					Message amqpMessage = (Message) message.getHeaders()
+							.get(AmqpMessageHeaderErrorMessageStrategy.AMQP_RAW_MESSAGE);
+					if (!(message instanceof ErrorMessage)) {
+						logger.error("Expected an ErrorMessage, not a " + message.getClass().toString() + " for: "
+								+ message);
+						throw new ListenerExecutionFailedException("Unexpected error message " + message,
+								new AmqpRejectAndDontRequeueException(""), null);
+					}
+					else if (amqpMessage == null) {
+						logger.error("No raw message header in " + message);
+						throw new ListenerExecutionFailedException("Unexpected error message " + message,
+								new AmqpRejectAndDontRequeueException(""), amqpMessage);
+					}
+					else {
+						this.recoverer.recover(amqpMessage, (Throwable) message.getPayload());
+					}
+				}
+
+			};
+		}
+		else {
+			return super.getErrorMessageHandler(destination, group, properties);
+		}
+	}
+
+	@Override
+	protected String errorsBaseName(ConsumerDestination destination, String group,
+			ExtendedConsumerProperties<RabbitConsumerProperties> consumerProperties) {
+		return destination.getName() + ".errors";
 	}
 
 	private String deadLetterExchangeName(RabbitCommonProperties properties) {
 		if (properties.getDeadLetterExchange() == null) {
-			return properties.getPrefix() + RabbitCommonProperties.DEAD_LETTER_EXCHANGE;
+			return applyPrefix(properties.getPrefix(), RabbitCommonProperties.DEAD_LETTER_EXCHANGE);
 		}
 		else {
 			return properties.getDeadLetterExchange();
@@ -288,34 +422,14 @@ public class RabbitMessageChannelBinder
 		provisioningProvider.cleanAutoDeclareContext(consumerDestination.getName());
 	}
 
-	private MessageRecoverer determineRecoverer(String name, final RabbitConsumerProperties properties) {
-		if (properties.isRepublishToDlq()) {
-			RabbitTemplate errorTemplate = new RabbitTemplate(this.connectionFactory);
-			if (properties.getRepublishDeliveyMode() != null) {
-				return new RepublishMessageRecoverer(errorTemplate,
-						deadLetterExchangeName(properties),
-						applyPrefix(properties.getPrefix(), name)) {
-
-							@Override
-							public void recover(Message message, Throwable cause) {
-								message.getMessageProperties().setDeliveryMode(properties.getRepublishDeliveyMode());
-								super.recover(message, cause);
-							}
-
-				};
-			}
-			else {
-				return new RepublishMessageRecoverer(errorTemplate,
-						deadLetterExchangeName(properties),
-						applyPrefix(properties.getPrefix(), name));
-			}
+	private RabbitTemplate buildRabbitTemplate(RabbitProducerProperties properties, boolean mandatory) {
+		RabbitProperties rabbitProperties = null;
+		try {
+			rabbitProperties = getApplicationContext().getBean(RabbitProperties.class);
 		}
-		else {
-			return new RejectAndDontRequeueRecoverer();
+		catch (NoSuchBeanDefinitionException e) {
+			logger.debug("No RabbitProperties in context; no producer retry will be configured");
 		}
-	}
-
-	private RabbitTemplate buildRabbitTemplate(RabbitProducerProperties properties) {
 		RabbitTemplate rabbitTemplate;
 		if (properties.isBatchingEnabled()) {
 			BatchingStrategy batchingStrategy = new SimpleBatchingStrategy(
@@ -334,8 +448,28 @@ public class RabbitMessageChannelBinder
 			rabbitTemplate.setBeforePublishPostProcessors(this.compressingPostProcessor);
 		}
 		rabbitTemplate.setChannelTransacted(properties.isTransacted());
+		rabbitTemplate.setMandatory(mandatory); // returned messages
+		if (rabbitProperties != null && rabbitProperties.getTemplate().getRetry().isEnabled()) {
+			Retry retry = rabbitProperties.getTemplate().getRetry();
+			RetryPolicy retryPolicy = new SimpleRetryPolicy(retry.getMaxAttempts());
+			ExponentialBackOffPolicy backOff = new ExponentialBackOffPolicy();
+			backOff.setInitialInterval(retry.getInitialInterval());
+			backOff.setMultiplier(retry.getMultiplier());
+			backOff.setMaxInterval(retry.getMaxInterval());
+			RetryTemplate retryTemplate = new RetryTemplate();
+			retryTemplate.setRetryPolicy(retryPolicy);
+			retryTemplate.setBackOffPolicy(backOff);
+			rabbitTemplate.setRetryTemplate(retryTemplate);
+		}
 		rabbitTemplate.afterPropertiesSet();
 		return rabbitTemplate;
+	}
+
+	private String getStackTraceAsString(Throwable cause) {
+		StringWriter stringWriter = new StringWriter();
+		PrintWriter printWriter = new PrintWriter(stringWriter, true);
+		cause.printStackTrace(printWriter);
+		return stringWriter.getBuffer().toString();
 	}
 
 }

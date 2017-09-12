@@ -16,26 +16,26 @@
 
 package org.springframework.cloud.stream.binder.rabbit;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
+import java.lang.reflect.Constructor;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.Deflater;
 
-import org.aopalliance.aop.Advice;
 import org.apache.commons.logging.Log;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 import org.mockito.ArgumentCaptor;
 
+import org.springframework.amqp.AmqpIOException;
 import org.springframework.amqp.core.AcknowledgeMode;
+import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Exchange;
@@ -51,7 +51,9 @@ import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.amqp.support.postprocessor.DelegatingDecompressingPostProcessor;
 import org.springframework.amqp.utils.test.TestUtils;
 import org.springframework.beans.DirectFieldAccessor;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
+import org.springframework.cloud.stream.binder.BinderException;
 import org.springframework.cloud.stream.binder.BinderHeaders;
 import org.springframework.cloud.stream.binder.Binding;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
@@ -67,24 +69,41 @@ import org.springframework.cloud.stream.binder.rabbit.provisioning.RabbitExchang
 import org.springframework.cloud.stream.binder.test.junit.rabbit.RabbitTestSupport;
 import org.springframework.cloud.stream.config.BindingProperties;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.Lifecycle;
 import org.springframework.expression.spel.standard.SpelExpression;
+import org.springframework.integration.amqp.outbound.AmqpOutboundEndpoint;
+import org.springframework.integration.amqp.support.NackedAmqpMessageException;
+import org.springframework.integration.amqp.support.ReturnedAmqpMessageException;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.channel.QueueChannel;
+import org.springframework.integration.context.IntegrationContextUtils;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.SubscribableChannel;
+import org.springframework.messaging.support.ErrorMessage;
 import org.springframework.messaging.support.GenericMessage;
+import org.springframework.retry.support.RetryTemplate;
+import org.springframework.util.ReflectionUtils;
 
 import com.rabbitmq.http.client.domain.QueueInfo;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * @author Mark Fisher
  * @author Gary Russell
  * @author David Turanski
+ * @author Artem Bilan
  */
 public class RabbitBinderTests extends
 		PartitionCapableBinderTests<RabbitTestBinder, ExtendedConsumerProperties<RabbitConsumerProperties>, ExtendedProducerProperties<RabbitProducerProperties>> {
@@ -154,11 +173,83 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
+	public void testProducerErrorChannel() throws Exception {
+		RabbitTestBinder binder = getBinder();
+		CachingConnectionFactory ccf = this.rabbitAvailableRule.getResource();
+		ccf.setPublisherReturns(true);
+		ccf.setPublisherConfirms(true);
+		ccf.resetConnection();
+		DirectChannel moduleOutputChannel = createBindableChannel("output", new BindingProperties());
+		ExtendedProducerProperties<RabbitProducerProperties> producerProps = createProducerProperties();
+		producerProps.setErrorChannelEnabled(true);
+		Binding<MessageChannel> producerBinding = binder.bindProducer("ec.0", moduleOutputChannel, producerProps);
+		final Message<?> message = MessageBuilder.withPayload("bad").setHeader(MessageHeaders.CONTENT_TYPE, "foo/bar")
+				.build();
+		SubscribableChannel ec = binder.getApplicationContext().getBean("ec.0.errors", SubscribableChannel.class);
+		final AtomicReference<Message<?>> errorMessage = new AtomicReference<>();
+		final CountDownLatch latch = new CountDownLatch(2);
+		ec.subscribe(new MessageHandler() {
+
+			@Override
+			public void handleMessage(Message<?> message) throws MessagingException {
+				errorMessage.set(message);
+				latch.countDown();
+			}
+
+		});
+		SubscribableChannel globalEc = binder.getApplicationContext()
+				.getBean(IntegrationContextUtils.ERROR_CHANNEL_BEAN_NAME, SubscribableChannel.class);
+		globalEc.subscribe(new MessageHandler() {
+
+			@Override
+			public void handleMessage(Message<?> message) throws MessagingException {
+				latch.countDown();
+			}
+
+		});
+		moduleOutputChannel.send(message);
+		assertThat(latch.await(10, TimeUnit.SECONDS)).isTrue();
+		assertThat(errorMessage.get()).isInstanceOf(ErrorMessage.class);
+		assertThat(errorMessage.get().getPayload()).isInstanceOf(ReturnedAmqpMessageException.class);
+		ReturnedAmqpMessageException exception = (ReturnedAmqpMessageException) errorMessage.get().getPayload();
+		assertThat(exception.getReplyCode()).isEqualTo(312);
+		assertThat(exception.getReplyText()).isEqualTo("NO_ROUTE");
+
+		AmqpOutboundEndpoint endpoint = TestUtils.getPropertyValue(producerBinding, "lifecycle",
+				AmqpOutboundEndpoint.class);
+		assertThat(TestUtils.getPropertyValue(endpoint, "confirmCorrelationExpression.expression"))
+				.isEqualTo("#root");
+		class WrapperAccessor extends AmqpOutboundEndpoint {
+
+			public WrapperAccessor(AmqpTemplate amqpTemplate) {
+				super(amqpTemplate);
+			}
+
+			public CorrelationDataWrapper getWrapper() throws Exception {
+				Constructor<CorrelationDataWrapper> constructor = CorrelationDataWrapper.class.getDeclaredConstructor(
+						String.class, Object.class, Message.class);
+				ReflectionUtils.makeAccessible(constructor);
+				return constructor.newInstance(null, message, message);
+			}
+
+		}
+		endpoint.confirm(new WrapperAccessor(mock(AmqpTemplate.class)).getWrapper(), false, "Mock NACK");
+		assertThat(errorMessage.get()).isInstanceOf(ErrorMessage.class);
+		assertThat(errorMessage.get().getPayload()).isInstanceOf(NackedAmqpMessageException.class);
+		NackedAmqpMessageException nack = (NackedAmqpMessageException) errorMessage.get().getPayload();
+		assertThat(nack.getNackReason()).isEqualTo("Mock NACK");
+		assertThat(nack.getCorrelationData()).isEqualTo(message);
+		assertThat(nack.getFailedMessage()).isEqualTo(message);
+		producerBinding.unbind();
+	}
+
+	@Test
 	public void testConsumerProperties() throws Exception {
 		RabbitTestBinder binder = getBinder();
 		ExtendedConsumerProperties<RabbitConsumerProperties> properties = createConsumerProperties();
 		properties.getExtension().setRequeueRejected(true);
 		properties.getExtension().setTransacted(true);
+		properties.getExtension().setExclusive(true);
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("props.0", null,
 				createBindableChannel("input", new BindingProperties()), properties);
 		Lifecycle endpoint = extractEndpoint(consumerBinding);
@@ -167,16 +258,17 @@ public class RabbitBinderTests extends
 		assertThat(container.getAcknowledgeMode()).isEqualTo(AcknowledgeMode.AUTO);
 		assertThat(container.getQueueNames()[0]).startsWith(properties.getExtension().getPrefix());
 		assertThat(TestUtils.getPropertyValue(container, "transactional", Boolean.class)).isTrue();
+		assertThat(TestUtils.getPropertyValue(container, "exclusive", Boolean.class)).isTrue();
 		assertThat(TestUtils.getPropertyValue(container, "concurrentConsumers")).isEqualTo(1);
 		assertThat(TestUtils.getPropertyValue(container, "maxConcurrentConsumers")).isNull();
 		assertThat(TestUtils.getPropertyValue(container, "defaultRequeueRejected", Boolean.class)).isTrue();
 		assertThat(TestUtils.getPropertyValue(container, "prefetchCount")).isEqualTo(1);
 		assertThat(TestUtils.getPropertyValue(container, "txSize")).isEqualTo(1);
-		Advice retry = TestUtils.getPropertyValue(container, "adviceChain", Advice[].class)[0];
-		assertThat(TestUtils.getPropertyValue(retry, "retryOperations.retryPolicy.maxAttempts")).isEqualTo(3);
-		assertThat(TestUtils.getPropertyValue(retry, "retryOperations.backOffPolicy.initialInterval")).isEqualTo(1000L);
-		assertThat(TestUtils.getPropertyValue(retry, "retryOperations.backOffPolicy.maxInterval")).isEqualTo(10000L);
-		assertThat(TestUtils.getPropertyValue(retry, "retryOperations.backOffPolicy.multiplier")).isEqualTo(2.0);
+		RetryTemplate retry = TestUtils.getPropertyValue(endpoint, "retryTemplate", RetryTemplate.class);
+		assertThat(TestUtils.getPropertyValue(retry, "retryPolicy.maxAttempts")).isEqualTo(3);
+		assertThat(TestUtils.getPropertyValue(retry, "backOffPolicy.initialInterval")).isEqualTo(1000L);
+		assertThat(TestUtils.getPropertyValue(retry, "backOffPolicy.maxInterval")).isEqualTo(10000L);
+		assertThat(TestUtils.getPropertyValue(retry, "backOffPolicy.multiplier")).isEqualTo(2.0);
 		consumerBinding.unbind();
 		assertThat(endpoint.isRunning()).isFalse();
 
@@ -190,7 +282,7 @@ public class RabbitBinderTests extends
 		properties.getExtension().setMaxConcurrency(3);
 		properties.getExtension().setPrefix("foo.");
 		properties.getExtension().setPrefetch(20);
-		properties.getExtension().setRequestHeaderPatterns(new String[] { "foo" });
+		properties.getExtension().setHeaderPatterns(new String[] { "foo" });
 		properties.getExtension().setTxSize(10);
 		properties.setInstanceIndex(0);
 		consumerBinding = binder.bindConsumer("props.0", "test", createBindableChannel("input", new BindingProperties()),
@@ -286,6 +378,7 @@ public class RabbitBinderTests extends
 		extProps.setExchangeAutoDelete(true);
 		extProps.setBindingRoutingKey("foo");
 		extProps.setExpires(30_000);
+		extProps.setLazy(true);
 		extProps.setMaxLength(10_000);
 		extProps.setMaxLengthBytes(100_000);
 		extProps.setMaxPriority(10);
@@ -297,6 +390,7 @@ public class RabbitBinderTests extends
 		extProps.setDlqDeadLetterExchange("propsUser3");
 		extProps.setDlqDeadLetterRoutingKey("propsUser3");
 		extProps.setDlqExpires(60_000);
+		extProps.setDlqLazy(true);
 		extProps.setDlqMaxLength(20_000);
 		extProps.setDlqMaxLengthBytes(40_000);
 		extProps.setDlqMaxPriority(8);
@@ -348,6 +442,7 @@ public class RabbitBinderTests extends
 		assertThat(args.get("x-message-ttl")).isEqualTo(2_000);
 		assertThat(args.get("x-dead-letter-exchange")).isEqualTo("customDLX");
 		assertThat(args.get("x-dead-letter-routing-key")).isEqualTo("customDLRK");
+		assertThat(args.get("x-queue-mode")).isEqualTo("lazy");
 
 		queue = rmt.getClient().getQueue("/", "customDLQ");
 
@@ -365,6 +460,7 @@ public class RabbitBinderTests extends
 		assertThat(args.get("x-message-ttl")).isEqualTo(1_000);
 		assertThat(args.get("x-dead-letter-exchange")).isEqualTo("propsUser3");
 		assertThat(args.get("x-dead-letter-routing-key")).isEqualTo("propsUser3");
+		assertThat(args.get("x-queue-mode")).isEqualTo("lazy");
 	}
 
 	@Test
@@ -388,7 +484,7 @@ public class RabbitBinderTests extends
 		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setPrefix("foo.");
 		producerProperties.getExtension().setDeliveryMode(MessageDeliveryMode.NON_PERSISTENT);
-		producerProperties.getExtension().setRequestHeaderPatterns(new String[] { "foo" });
+		producerProperties.getExtension().setHeaderPatterns(new String[] { "foo" });
 		producerProperties.setPartitionKeyExpression(spelExpressionParser.parseExpression("'foo'"));
 		producerProperties.setPartitionKeyExtractorClass(TestPartitionKeyExtractorClass.class);
 		producerProperties.setPartitionSelectorExpression(spelExpressionParser.parseExpression("0"));
@@ -630,14 +726,23 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testAutoBindDLQPartionedConsumerFirstWithRepublish() throws Exception {
+	public void testAutoBindDLQPartionedConsumerFirstWithRepublishNoRetry() throws Exception {
+		testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(false);
+	}
+
+	@Test
+	public void testAutoBindDLQPartionedConsumerFirstWithRepublishWithRetry() throws Exception {
+		testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(true);
+	}
+
+	private void testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(final boolean withRetry) throws Exception {
 		RabbitTestBinder binder = getBinder();
 		ExtendedConsumerProperties<RabbitConsumerProperties> properties = createConsumerProperties();
 		properties.getExtension().setPrefix("bindertest.");
 		properties.getExtension().setAutoBindDlq(true);
 		properties.getExtension().setRepublishToDlq(true);
 		properties.getExtension().setRepublishDeliveyMode(MessageDeliveryMode.NON_PERSISTENT);
-		properties.setMaxAttempts(1); // disable retry
+		properties.setMaxAttempts(withRetry ? 2 : 1);
 		properties.setPartitioned(true);
 		properties.setInstanceIndex(0);
 		DirectChannel input0 = createBindableChannel("input", createConsumerBindingProperties(properties));
@@ -689,6 +794,33 @@ public class RabbitBinderTests extends
 
 		});
 
+		ApplicationContext context = TestUtils.getPropertyValue(binder.getBinder(), "applicationContext",
+				ApplicationContext.class);
+		SubscribableChannel boundErrorChannel = context
+				.getBean("bindertest.partPubDLQ.0.dlqPartGrp-0.errors", SubscribableChannel.class);
+		SubscribableChannel globalErrorChannel = context.getBean("errorChannel", SubscribableChannel.class);
+		final AtomicReference<Message<?>> boundErrorChannelMessage = new AtomicReference<>();
+		final AtomicReference<Message<?>> globalErrorChannelMessage = new AtomicReference<>();
+		final AtomicBoolean hasRecovererInCallStack = new AtomicBoolean(!withRetry);
+		boundErrorChannel.subscribe(new MessageHandler() {
+
+			@Override
+			public void handleMessage(Message<?> message) throws MessagingException {
+				boundErrorChannelMessage.set(message);
+				String stackTrace = Arrays.toString(new RuntimeException().getStackTrace());
+				hasRecovererInCallStack.set(stackTrace.contains("ErrorMessageSendingRecoverer"));
+			}
+
+		});
+		globalErrorChannel.subscribe(new MessageHandler() {
+
+			@Override
+			public void handleMessage(Message<?> message) throws MessagingException {
+				globalErrorChannelMessage.set(message);
+			}
+
+		});
+
 		output.send(new GenericMessage<>(1));
 		assertThat(latch1.await(10, TimeUnit.SECONDS)).isTrue();
 
@@ -716,6 +848,11 @@ public class RabbitBinderTests extends
 		assertThat(received.getMessageProperties().getHeaders().get("x-original-routingKey"))
 			.isEqualTo("partPubDLQ.0-0");
 		assertThat(received.getMessageProperties().getHeaders()).doesNotContainKey(BinderHeaders.PARTITION_HEADER);
+
+		// verify we got a message on the dedicated error channel and the global (via bridge)
+		assertThat(boundErrorChannelMessage.get()).isNotNull();
+		assertThat(globalErrorChannelMessage.get()).isNotNull();
+		assertThat(hasRecovererInCallStack.get()).isEqualTo(withRetry);
 
 		input0Binding.unbind();
 		input1Binding.unbind();
@@ -846,15 +983,15 @@ public class RabbitBinderTests extends
 			}
 
 		});
-		Binding<MessageChannel> consumerBinding = binder.bindConsumer("dlqpubtest", "default", moduleInputChannel,
+		Binding<MessageChannel> consumerBinding = binder.bindConsumer("foo.dlqpubtest", "foo", moduleInputChannel,
 				consumerProperties);
 
 		RabbitTemplate template = new RabbitTemplate(this.rabbitAvailableRule.getResource());
-		template.convertAndSend("", TEST_PREFIX + "dlqpubtest.default", "foo");
+		template.convertAndSend("", TEST_PREFIX + "foo.dlqpubtest.foo", "foo");
 
 		int n = 0;
 		while (n++ < 100) {
-			org.springframework.amqp.core.Message deadLetter = template.receive(TEST_PREFIX + "dlqpubtest.default.dlq");
+			org.springframework.amqp.core.Message deadLetter = template.receive(TEST_PREFIX + "foo.dlqpubtest.foo.dlq");
 			if (deadLetter != null) {
 				assertThat(new String(deadLetter.getBody())).isEqualTo("foo");
 				assertThat(deadLetter.getMessageProperties().getHeaders()).containsKey(("x-exception-stacktrace"));
@@ -1043,9 +1180,45 @@ public class RabbitBinderTests extends
 		this.rabbitAvailableRule.getResource().destroy();
 	}
 
+	@Test
+	public void testBadUserDeclarationsFatal() {
+		RabbitTestBinder binder = getBinder();
+		ConfigurableApplicationContext context = binder.getApplicationContext();
+		ConfigurableListableBeanFactory bf = context.getBeanFactory();
+		bf.registerSingleton("testBadUserDeclarationsFatal", new Queue("testBadUserDeclarationsFatal", false));
+		bf.registerSingleton("binder", binder);
+		RabbitExchangeQueueProvisioner provisioner = TestUtils.getPropertyValue(binder, "binder.provisioningProvider",
+				RabbitExchangeQueueProvisioner.class);
+		bf.initializeBean(provisioner, "provisioner");
+		bf.registerSingleton("provisioner", provisioner);
+		context.addApplicationListener(provisioner);
+		RabbitAdmin admin = new RabbitAdmin(rabbitAvailableRule.getResource());
+		admin.declareQueue(new Queue("testBadUserDeclarationsFatal"));
+		// reset the connection and configure the "user" admin to auto declare queues...
+		rabbitAvailableRule.getResource().resetConnection();
+		bf.initializeBean(admin, "rabbitAdmin");
+		bf.registerSingleton("rabbitAdmin", admin);
+		admin.afterPropertiesSet();
+		// the mis-configured queue should be fatal
+		Binding<?> binding = null;
+		try {
+			binding = binder.bindConsumer("input", "baddecls", new DirectChannel(), createConsumerProperties());
+			fail("Expected exception");
+		}
+		catch (BinderException e) {
+			assertThat(e.getCause()).isInstanceOf(AmqpIOException.class);
+		}
+		finally {
+			admin.deleteQueue("testBadUserDeclarationsFatal");
+			if (binding != null) {
+				binding.unbind();
+			}
+		}
+	}
+
 	private SimpleMessageListenerContainer verifyContainer(Lifecycle endpoint) {
 		SimpleMessageListenerContainer container;
-		Advice retry;
+		RetryTemplate retry;
 		container = TestUtils.getPropertyValue(endpoint, "messageListenerContainer",
 				SimpleMessageListenerContainer.class);
 		assertThat(container.getAcknowledgeMode()).isEqualTo(AcknowledgeMode.NONE);
@@ -1056,11 +1229,11 @@ public class RabbitBinderTests extends
 		assertThat(TestUtils.getPropertyValue(container, "defaultRequeueRejected", Boolean.class)).isFalse();
 		assertThat(TestUtils.getPropertyValue(container, "prefetchCount")).isEqualTo(20);
 		assertThat(TestUtils.getPropertyValue(container, "txSize")).isEqualTo(10);
-		retry = TestUtils.getPropertyValue(container, "adviceChain", Advice[].class)[0];
-		assertThat(TestUtils.getPropertyValue(retry, "retryOperations.retryPolicy.maxAttempts")).isEqualTo(23);
-		assertThat(TestUtils.getPropertyValue(retry, "retryOperations.backOffPolicy.initialInterval")).isEqualTo(2000L);
-		assertThat(TestUtils.getPropertyValue(retry, "retryOperations.backOffPolicy.maxInterval")).isEqualTo(20000L);
-		assertThat(TestUtils.getPropertyValue(retry, "retryOperations.backOffPolicy.multiplier")).isEqualTo(5.0);
+		retry = TestUtils.getPropertyValue(endpoint, "retryTemplate", RetryTemplate.class);
+		assertThat(TestUtils.getPropertyValue(retry, "retryPolicy.maxAttempts")).isEqualTo(23);
+		assertThat(TestUtils.getPropertyValue(retry, "backOffPolicy.initialInterval")).isEqualTo(2000L);
+		assertThat(TestUtils.getPropertyValue(retry, "backOffPolicy.maxInterval")).isEqualTo(20000L);
+		assertThat(TestUtils.getPropertyValue(retry, "backOffPolicy.multiplier")).isEqualTo(5.0);
 
 		List<?> requestMatchers = TestUtils.getPropertyValue(endpoint, "headerMapper.requestHeaderMatcher.matchers",
 				List.class);

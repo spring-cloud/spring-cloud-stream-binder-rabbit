@@ -12,6 +12,8 @@
 	</parent>
 	<properties>
 		<spring-cloud-stream.version>2.0.0.BUILD-SNAPSHOT</spring-cloud-stream.version>
+		<spring-cloud-build.version>2.0.0.BUILD-SNAPSHOT</spring-cloud-build.version>
+		<spring-boot.version>2.0.0.BUILD-SNAPSHOT</spring-boot.version>
 		<java.version>1.8</java.version>
 	</properties>
 	<dependencyManagement>
@@ -102,7 +104,7 @@
 					<dependency>
 						<groupId>org.springframework.cloud</groupId>
 						<artifactId>spring-cloud-build-tools</artifactId>
-						<version>2.0.0.BUILD-SNAPSHOT</version>
+						<version>${spring-cloud-build.version}</version>
 					</dependency>
 				</dependencies>
 				<executions>
