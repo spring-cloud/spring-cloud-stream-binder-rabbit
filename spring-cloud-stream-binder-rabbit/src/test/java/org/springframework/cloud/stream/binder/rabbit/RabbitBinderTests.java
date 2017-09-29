@@ -16,6 +16,13 @@
 
 package org.springframework.cloud.stream.binder.rabbit;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -43,6 +50,7 @@ import org.springframework.amqp.core.ExchangeTypes;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitManagementTemplate;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -92,13 +100,6 @@ import org.springframework.util.ReflectionUtils;
 
 import com.rabbitmq.http.client.domain.QueueInfo;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 /**
  * @author Mark Fisher
  * @author Gary Russell
@@ -120,10 +121,13 @@ public class RabbitBinderTests extends
 
 	@Override
 	protected RabbitTestBinder getBinder() {
-		if (testBinder == null) {
-			testBinder = new RabbitTestBinder(rabbitAvailableRule.getResource(), new RabbitProperties());
+		if (this.testBinder == null) {
+			RabbitProperties rabbitProperties = new RabbitProperties();
+			rabbitProperties.setPublisherConfirms(true);
+			rabbitProperties.setPublisherReturns(true);
+			this.testBinder = new RabbitTestBinder(rabbitAvailableRule.getResource(), rabbitProperties);
 		}
-		return testBinder;
+		return this.testBinder;
 	}
 
 	@Override
@@ -155,6 +159,20 @@ public class RabbitBinderTests extends
 				createProducerProperties());
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer("bad.0", "test", moduleInputChannel,
 				createConsumerProperties());
+
+		ConnectionFactory producerConnectionFactory =
+				TestUtils.getPropertyValue(producerBinding, "lifecycle.amqpTemplate.connectionFactory",
+						ConnectionFactory.class);
+
+		ConnectionFactory consumerConnectionFactory =
+				TestUtils.getPropertyValue(consumerBinding, "lifecycle.messageListenerContainer.connectionFactory",
+						ConnectionFactory.class);
+
+		assertThat(producerConnectionFactory).isNotSameAs(consumerConnectionFactory);
+
+		assertThat(producerConnectionFactory.createConnection())
+				.isNotEqualTo(consumerConnectionFactory.createConnection());
+
 		Message<?> message = MessageBuilder.withPayload("bad").setHeader(MessageHeaders.CONTENT_TYPE, "foo/bar")
 				.build();
 		final CountDownLatch latch = new CountDownLatch(3);
@@ -496,8 +514,15 @@ public class RabbitBinderTests extends
 
 		BindingProperties producerBindingProperties = createProducerBindingProperties(producerProperties);
 		DirectChannel channel = createBindableChannel("output", producerBindingProperties);
-		producerBinding = binder.bindProducer("props.0", channel,
-				producerProperties);
+		producerBinding = binder.bindProducer("props.0", channel, producerProperties);
+
+		ConnectionFactory producerConnectionFactory =
+				TestUtils.getPropertyValue(producerBinding, "lifecycle.amqpTemplate.connectionFactory",
+						ConnectionFactory.class);
+
+		assertThat(this.rabbitAvailableRule.getResource())
+				.isSameAs(producerConnectionFactory);
+
 		endpoint = extractEndpoint(producerBinding);
 		assertThat(getEndpointRouting(endpoint))
 				.isEqualTo("'props.0-' + headers['" + BinderHeaders.PARTITION_HEADER + "']");
@@ -726,12 +751,12 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testAutoBindDLQPartionedConsumerFirstWithRepublishNoRetry() throws Exception {
+	public void testAutoBindDLQPartitionedConsumerFirstWithRepublishNoRetry() throws Exception {
 		testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(false);
 	}
 
 	@Test
-	public void testAutoBindDLQPartionedConsumerFirstWithRepublishWithRetry() throws Exception {
+	public void testAutoBindDLQPartitionedConsumerFirstWithRepublishWithRetry() throws Exception {
 		testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(true);
 	}
 
@@ -1135,7 +1160,7 @@ public class RabbitBinderTests extends
 		proxy.start();
 
 		moduleOutputChannel.send(new GenericMessage<>("foo"));
-		Message<?> message = moduleInputChannel.receive(10000);
+		Message<?> message = moduleInputChannel.receive(20000);
 		assertThat(message).isNotNull();
 		assertThat(message.getPayload()).isNotNull();
 
