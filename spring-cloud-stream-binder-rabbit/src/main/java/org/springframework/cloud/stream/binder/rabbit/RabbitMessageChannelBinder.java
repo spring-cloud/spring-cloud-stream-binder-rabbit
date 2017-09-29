@@ -96,22 +96,26 @@ import com.rabbitmq.client.Envelope;
  * @author Artem Bilan
  */
 public class RabbitMessageChannelBinder
-		extends AbstractMessageChannelBinder<ExtendedConsumerProperties<RabbitConsumerProperties>, ExtendedProducerProperties<RabbitProducerProperties>, RabbitExchangeQueueProvisioner>
+		extends AbstractMessageChannelBinder<ExtendedConsumerProperties<RabbitConsumerProperties>,
+		ExtendedProducerProperties<RabbitProducerProperties>, RabbitExchangeQueueProvisioner>
 		implements ExtendedPropertiesBinder<MessageChannel, RabbitConsumerProperties, RabbitProducerProperties>,
 		DisposableBean {
 
-	private static final AmqpMessageHeaderErrorMessageStrategy errorMessageStrategy = new AmqpMessageHeaderErrorMessageStrategy();
+	private static final AmqpMessageHeaderErrorMessageStrategy errorMessageStrategy =
+			new AmqpMessageHeaderErrorMessageStrategy();
 
-	private static final MessagePropertiesConverter inboundMessagePropertiesConverter = new DefaultMessagePropertiesConverter() {
+	private static final MessagePropertiesConverter inboundMessagePropertiesConverter =
+			new DefaultMessagePropertiesConverter() {
 
-		@Override
-		public MessageProperties toMessageProperties(AMQP.BasicProperties source, Envelope envelope,
-				String charset) {
-			MessageProperties properties = super.toMessageProperties(source, envelope, charset);
-			properties.setDeliveryMode(null);
-			return properties;
-		}
-	};
+				@Override
+				public MessageProperties toMessageProperties(AMQP.BasicProperties source, Envelope envelope,
+						String charset) {
+					MessageProperties properties = super.toMessageProperties(source, envelope, charset);
+					properties.setDeliveryMode(null);
+					return properties;
+				}
+
+			};
 
 	private final RabbitProperties rabbitProperties;
 
@@ -196,14 +200,6 @@ public class RabbitMessageChannelBinder
 					this.rabbitProperties.getSsl().getTrustStore(),
 					this.rabbitProperties.getSsl().getKeyStorePassword(),
 					this.rabbitProperties.getSsl().getTrustStorePassword());
-
-			this.producerConnectionFactory = new LocalizedQueueConnectionFactory(this.producerConnectionFactory,
-					addresses, this.adminAddresses, this.nodes, this.rabbitProperties.getVirtualHost(),
-					this.rabbitProperties.getUsername(), this.rabbitProperties.getPassword(),
-					this.rabbitProperties.getSsl().isEnabled(), this.rabbitProperties.getSsl().getKeyStore(),
-					this.rabbitProperties.getSsl().getTrustStore(),
-					this.rabbitProperties.getSsl().getKeyStorePassword(),
-					this.rabbitProperties.getSsl().getTrustStorePassword());
 		}
 	}
 
@@ -211,39 +207,48 @@ public class RabbitMessageChannelBinder
 	 * @see org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration.RabbitConnectionFactoryCreator
 	 */
 	private CachingConnectionFactory createProducerConnectionFactory(RabbitProperties config) throws Exception {
-		RabbitConnectionFactoryBean factory = new RabbitConnectionFactoryBean();
-		if (config.determineHost() != null) {
-			factory.setHost(config.determineHost());
+		com.rabbitmq.client.ConnectionFactory rabbitConnectionFactory = null;
+		if (this.connectionFactory instanceof CachingConnectionFactory) {
+			rabbitConnectionFactory = ((CachingConnectionFactory) this.connectionFactory).getRabbitConnectionFactory();
 		}
-		factory.setPort(config.determinePort());
-		if (config.determineUsername() != null) {
-			factory.setUsername(config.determineUsername());
-		}
-		if (config.determinePassword() != null) {
-			factory.setPassword(config.determinePassword());
-		}
-		if (config.determineVirtualHost() != null) {
-			factory.setVirtualHost(config.determineVirtualHost());
-		}
-		if (config.getRequestedHeartbeat() != null) {
-			factory.setRequestedHeartbeat(config.getRequestedHeartbeat());
-		}
-		RabbitProperties.Ssl ssl = config.getSsl();
-		if (ssl.isEnabled()) {
-			factory.setUseSSL(true);
-			if (ssl.getAlgorithm() != null) {
-				factory.setSslAlgorithm(ssl.getAlgorithm());
+		else {
+			RabbitConnectionFactoryBean factory = new RabbitConnectionFactoryBean();
+			if (config.determineHost() != null) {
+				factory.setHost(config.determineHost());
 			}
-			factory.setKeyStore(ssl.getKeyStore());
-			factory.setKeyStorePassphrase(ssl.getKeyStorePassword());
-			factory.setTrustStore(ssl.getTrustStore());
-			factory.setTrustStorePassphrase(ssl.getTrustStorePassword());
+			factory.setPort(config.determinePort());
+			if (config.determineUsername() != null) {
+				factory.setUsername(config.determineUsername());
+			}
+			if (config.determinePassword() != null) {
+				factory.setPassword(config.determinePassword());
+			}
+			if (config.determineVirtualHost() != null) {
+				factory.setVirtualHost(config.determineVirtualHost());
+			}
+			if (config.getRequestedHeartbeat() != null) {
+				factory.setRequestedHeartbeat(config.getRequestedHeartbeat());
+			}
+			RabbitProperties.Ssl ssl = config.getSsl();
+			if (ssl.isEnabled()) {
+				factory.setUseSSL(true);
+				if (ssl.getAlgorithm() != null) {
+					factory.setSslAlgorithm(ssl.getAlgorithm());
+				}
+				factory.setKeyStore(ssl.getKeyStore());
+				factory.setKeyStorePassphrase(ssl.getKeyStorePassword());
+				factory.setTrustStore(ssl.getTrustStore());
+				factory.setTrustStorePassphrase(ssl.getTrustStorePassword());
+			}
+			if (config.getConnectionTimeout() != null) {
+				factory.setConnectionTimeout(config.getConnectionTimeout());
+			}
+			factory.afterPropertiesSet();
+
+			rabbitConnectionFactory = factory.getObject();
 		}
-		if (config.getConnectionTimeout() != null) {
-			factory.setConnectionTimeout(config.getConnectionTimeout());
-		}
-		factory.afterPropertiesSet();
-		CachingConnectionFactory connectionFactory = new CachingConnectionFactory(factory.getObject());
+
+		CachingConnectionFactory connectionFactory = new CachingConnectionFactory(rabbitConnectionFactory);
 		connectionFactory.setAddresses(config.determineAddresses());
 		connectionFactory.setPublisherConfirms(config.isPublisherConfirms());
 		connectionFactory.setPublisherReturns(config.isPublisherReturns());
