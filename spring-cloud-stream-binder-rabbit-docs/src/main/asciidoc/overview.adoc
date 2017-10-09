@@ -232,6 +232,10 @@ prefix::
   A prefix to be added to the name of the `destination` and queues.
 +
 Default: "".
+queueNameIsGroupOnly::
+  When true, the consumer consumes from a queue with a name equal to the `group`; otherwise the queue name is `destination.group`.
++
+Default: false.
 recoveryInterval::
   The interval between connection recovery attempts, in milliseconds.
 +
@@ -419,6 +423,11 @@ prefix::
   A prefix to be added to the name of the `destination` exchange.
 +
 Default: "".
+queueNameIsGroupOnly::
+  When true, the consumer consumes from a queue with a name equal to the `group`; otherwise the queue name is `destination.group`.
+  Only applies if `requiredGroups` are provided and then only to those groups.
++
+Default: false.
 routingKeyExpression::
   A SpEL expression to determine the routing key to use when publishing messages.
   For a fixed routing key, use a literal expression, e.g. `routingKeyExpression='my.routingKey'` in a properties file, or `routingKeyExpression: '''my.routingKey'''` in a YAML file.
