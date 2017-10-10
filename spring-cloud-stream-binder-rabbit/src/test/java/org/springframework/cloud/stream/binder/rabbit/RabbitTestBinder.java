@@ -77,7 +77,12 @@ public class RabbitTestBinder extends AbstractTestBinder<RabbitMessageChannelBin
 	public Binding<MessageChannel> bindConsumer(String name, String group, MessageChannel moduleInputChannel,
 			ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
 		if (group != null) {
-			this.queues.add(properties.getExtension().getPrefix() + name + ("." + group));
+			if (properties.getExtension().isQueueNameGroupOnly()) {
+				this.queues.add(properties.getExtension().getPrefix() + group);
+			}
+			else {
+				this.queues.add(properties.getExtension().getPrefix() + name + ("." + group));
+			}
 		}
 		this.exchanges.add(properties.getExtension().getPrefix() + name);
 		this.prefixes.add(properties.getExtension().getPrefix());
@@ -92,7 +97,12 @@ public class RabbitTestBinder extends AbstractTestBinder<RabbitMessageChannelBin
 		this.exchanges.add(properties.getExtension().getPrefix() + name);
 		if (properties.getRequiredGroups() != null) {
 			for (String group : properties.getRequiredGroups()) {
-				this.queues.add(properties.getExtension().getPrefix() + name + "." + group);
+				if (properties.getExtension().isQueueNameGroupOnly()) {
+					this.queues.add(properties.getExtension().getPrefix() + group);
+				}
+				else {
+					this.queues.add(properties.getExtension().getPrefix() + name + "." + group);
+				}
 			}
 		}
 		this.prefixes.add(properties.getExtension().getPrefix());
