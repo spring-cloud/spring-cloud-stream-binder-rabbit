@@ -1281,12 +1281,12 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testRoutingKeyExpressionPartitioned() throws Exception {
+	public void testRoutingKeyExpressionPartitionedAndDelay() throws Exception {
 		RabbitTestBinder binder = getBinder();
 		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setRoutingKeyExpression("payload.field");
 		// requires delayed message exchange plugin; tested locally
-		producerProperties.getExtension().setDelayedExchange(true);
+//		producerProperties.getExtension().setDelayedExchange(true);
 		producerProperties.getExtension().setDelayExpression("1000");
 		producerProperties.setPartitionKeyExpression(new ValueExpression<>(0));
 
