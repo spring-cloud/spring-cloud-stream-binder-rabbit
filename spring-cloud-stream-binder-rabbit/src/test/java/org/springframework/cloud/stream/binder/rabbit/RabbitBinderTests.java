@@ -16,6 +16,13 @@
 
 package org.springframework.cloud.stream.binder.rabbit;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -93,13 +100,6 @@ import org.springframework.util.ReflectionUtils;
 
 import com.rabbitmq.http.client.domain.QueueInfo;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 /**
  * @author Mark Fisher
  * @author Gary Russell
@@ -164,17 +164,9 @@ public class RabbitBinderTests extends
 				TestUtils.getPropertyValue(producerBinding, "lifecycle.amqpTemplate.connectionFactory",
 						ConnectionFactory.class);
 
-		ConnectionFactory consumerConnectionFactory =
-				TestUtils.getPropertyValue(consumerBinding, "lifecycle.messageListenerContainer.connectionFactory",
-						ConnectionFactory.class);
-
-		assertThat(producerConnectionFactory).isNotSameAs(consumerConnectionFactory);
-
-		assertThat(producerConnectionFactory.createConnection())
-				.isNotEqualTo(consumerConnectionFactory.createConnection());
-
 		Message<?> message = MessageBuilder.withPayload("bad").setHeader(MessageHeaders.CONTENT_TYPE, "foo/bar")
 				.build();
+
 		final CountDownLatch latch = new CountDownLatch(3);
 		moduleInputChannel.subscribe(new MessageHandler() {
 

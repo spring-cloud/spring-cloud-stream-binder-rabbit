@@ -16,6 +16,12 @@
 
 package org.springframework.cloud.stream.binder.rabbit.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +42,8 @@ import org.springframework.boot.actuate.health.CompositeHealthIndicator;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.actuate.health.Status;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.cloud.Cloud;
 import org.springframework.cloud.stream.annotation.EnableBinding;
 import org.springframework.cloud.stream.binder.Binder;
 import org.springframework.cloud.stream.binder.BinderFactory;
@@ -56,11 +64,10 @@ import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.policy.SimpleRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 /**
  * @author Marius Bogoevici
  * @author Gary Russell
+ * @author Artem Bilan
  */
 public class RabbitBinderModuleTests {
 
@@ -69,7 +76,7 @@ public class RabbitBinderModuleTests {
 
 	private ConfigurableApplicationContext context;
 
-	public static final ConnectionFactory MOCK_CONNECTION_FACTORY = Mockito.mock(ConnectionFactory.class,
+	public static final ConnectionFactory MOCK_CONNECTION_FACTORY = mock(ConnectionFactory.class,
 			Mockito.RETURNS_MOCKS);
 
 	@After
@@ -97,6 +104,11 @@ public class RabbitBinderModuleTests {
 		assertThat(binderConnectionFactory).isInstanceOf(CachingConnectionFactory.class);
 		ConnectionFactory connectionFactory = context.getBean(ConnectionFactory.class);
 		assertThat(binderConnectionFactory).isSameAs(connectionFactory);
+
+		ConnectionFactory producerConnectionFactory = (ConnectionFactory) binderFieldAccessor
+				.getPropertyValue("producerConnectionFactory");
+		assertThat(producerConnectionFactory).isNotSameAs(connectionFactory);
+
 		CompositeHealthIndicator bindersHealthIndicator = context.getBean("bindersHealthIndicator",
 				CompositeHealthIndicator.class);
 		DirectFieldAccessor directFieldAccessor = new DirectFieldAccessor(bindersHealthIndicator);
@@ -188,10 +200,7 @@ public class RabbitBinderModuleTests {
 		context = SpringApplication.run(SimpleProcessor.class, params.toArray(new String[params.size()]));
 		BinderFactory binderFactory = context.getBean(BinderFactory.class);
 		@SuppressWarnings("unchecked")
-		Binder<MessageChannel, ExtendedConsumerProperties<RabbitConsumerProperties>,
-								ExtendedProducerProperties<RabbitProducerProperties>> binder =
-			(Binder<MessageChannel, ExtendedConsumerProperties<RabbitConsumerProperties>,
-					ExtendedProducerProperties<RabbitProducerProperties>>) binderFactory
+		Binder<MessageChannel, ExtendedConsumerProperties<RabbitConsumerProperties>, ExtendedProducerProperties<RabbitProducerProperties>> binder = (Binder<MessageChannel, ExtendedConsumerProperties<RabbitConsumerProperties>, ExtendedProducerProperties<RabbitProducerProperties>>) binderFactory
 				.getBinder(null, MessageChannel.class);
 		assertThat(binder).isInstanceOf(RabbitMessageChannelBinder.class);
 		DirectFieldAccessor binderFieldAccessor = new DirectFieldAccessor(binder);
@@ -224,6 +233,31 @@ public class RabbitBinderModuleTests {
 		context.close();
 	}
 
+	@Test
+	public void testCloudProfile() {
+		this.context = new SpringApplicationBuilder(SimpleProcessor.class, MockCloudConfiguration.class)
+				.profiles("cloud")
+				.run("--server.port=0");
+		BinderFactory binderFactory = this.context.getBean(BinderFactory.class);
+		Binder<?, ?, ?> binder = binderFactory.getBinder(null, MessageChannel.class);
+		assertThat(binder).isInstanceOf(RabbitMessageChannelBinder.class);
+		DirectFieldAccessor binderFieldAccessor = new DirectFieldAccessor(binder);
+		ConnectionFactory binderConnectionFactory = (ConnectionFactory) binderFieldAccessor
+				.getPropertyValue("connectionFactory");
+		ConnectionFactory connectionFactory = this.context.getBean(ConnectionFactory.class);
+		assertThat(binderConnectionFactory).isNotSameAs(connectionFactory);
+
+		ConnectionFactory producerConnectionFactory = (ConnectionFactory) binderFieldAccessor
+				.getPropertyValue("producerConnectionFactory");
+		assertThat(producerConnectionFactory).isNotSameAs(connectionFactory);
+
+		assertThat(binderConnectionFactory).isNotSameAs(connectionFactory);
+
+		Cloud cloud = this.context.getBean(Cloud.class);
+
+		verify(cloud, times(2)).getSingletonServiceConnector(ConnectionFactory.class, null);
+	}
+
 	@EnableBinding(Processor.class)
 	@SpringBootApplication
 	public static class SimpleProcessor {
@@ -235,6 +269,20 @@ public class RabbitBinderModuleTests {
 		@Bean
 		public ConnectionFactory connectionFactory() {
 			return MOCK_CONNECTION_FACTORY;
+		}
+
+	}
+
+	public static class MockCloudConfiguration {
+
+		@Bean
+		public Cloud cloud() {
+			Cloud cloud = mock(Cloud.class);
+
+			given(cloud.getSingletonServiceConnector(ConnectionFactory.class, null))
+					.willReturn(mock(ConnectionFactory.class), mock(ConnectionFactory.class));
+
+			return cloud;
 		}
 
 	}
