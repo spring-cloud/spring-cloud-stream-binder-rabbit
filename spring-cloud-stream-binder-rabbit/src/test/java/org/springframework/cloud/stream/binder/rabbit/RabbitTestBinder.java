@@ -64,6 +64,7 @@ public class RabbitTestBinder extends AbstractTestBinder<RabbitMessageChannelBin
 	public RabbitTestBinder(ConnectionFactory connectionFactory, RabbitMessageChannelBinder binder) {
 		this.applicationContext = new AnnotationConfigApplicationContext(Config.class);
 		binder.setApplicationContext(this.applicationContext);
+		binder.setProducerConnectionFactory(connectionFactory);
 		binder.setCodec(new PojoCodec());
 		this.setBinder(binder);
 		this.rabbitAdmin = new RabbitAdmin(connectionFactory);

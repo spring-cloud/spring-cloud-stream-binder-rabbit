@@ -30,7 +30,6 @@ import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.LocalizedQueueConnectionFactory;
-import org.springframework.amqp.rabbit.connection.RabbitConnectionFactoryBean;
 import org.springframework.amqp.rabbit.core.BatchingRabbitTemplate;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.core.support.BatchingStrategy;
@@ -145,6 +144,15 @@ public class RabbitMessageChannelBinder
 	}
 
 	/**
+	 * Specify a distinct {@link ConnectionFactory} for the non-transactional producers to avoid dead locks
+	 * on blocked connections.
+	 * @param producerConnectionFactory the ConnectionFactory to use for non-transactional producers.
+	 */
+	public void setProducerConnectionFactory(ConnectionFactory producerConnectionFactory) {
+		this.producerConnectionFactory = producerConnectionFactory;
+	}
+
+	/**
 	 * Set a {@link MessagePostProcessor} to decompress messages. Defaults to a
 	 * {@link DelegatingDecompressingPostProcessor} with its default delegates.
 	 * @param decompressingPostProcessor the post processor.
@@ -179,13 +187,6 @@ public class RabbitMessageChannelBinder
 	public void onInit() throws Exception {
 		super.onInit();
 
-		CachingConnectionFactory producerConnectionFactory = createProducerConnectionFactory(this.rabbitProperties);
-		producerConnectionFactory.setApplicationContext(getApplicationContext());
-		getApplicationContext().addApplicationListener(producerConnectionFactory);
-		producerConnectionFactory.afterPropertiesSet();
-
-		this.producerConnectionFactory = producerConnectionFactory;
-
 		if (this.clustered) {
 			String[] addresses = StringUtils.commaDelimitedListToStringArray(this.rabbitProperties.getAddresses());
 
@@ -201,74 +202,6 @@ public class RabbitMessageChannelBinder
 					this.rabbitProperties.getSsl().getKeyStorePassword(),
 					this.rabbitProperties.getSsl().getTrustStorePassword());
 		}
-	}
-
-	/**
-	 * @see org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration.RabbitConnectionFactoryCreator
-	 */
-	private CachingConnectionFactory createProducerConnectionFactory(RabbitProperties config) throws Exception {
-		com.rabbitmq.client.ConnectionFactory rabbitConnectionFactory = null;
-		if (this.connectionFactory instanceof CachingConnectionFactory) {
-			rabbitConnectionFactory = ((CachingConnectionFactory) this.connectionFactory).getRabbitConnectionFactory();
-		}
-		else {
-			RabbitConnectionFactoryBean factory = new RabbitConnectionFactoryBean();
-			if (config.determineHost() != null) {
-				factory.setHost(config.determineHost());
-			}
-			factory.setPort(config.determinePort());
-			if (config.determineUsername() != null) {
-				factory.setUsername(config.determineUsername());
-			}
-			if (config.determinePassword() != null) {
-				factory.setPassword(config.determinePassword());
-			}
-			if (config.determineVirtualHost() != null) {
-				factory.setVirtualHost(config.determineVirtualHost());
-			}
-			if (config.getRequestedHeartbeat() != null) {
-				factory.setRequestedHeartbeat(config.getRequestedHeartbeat());
-			}
-			RabbitProperties.Ssl ssl = config.getSsl();
-			if (ssl.isEnabled()) {
-				factory.setUseSSL(true);
-				if (ssl.getAlgorithm() != null) {
-					factory.setSslAlgorithm(ssl.getAlgorithm());
-				}
-				factory.setKeyStore(ssl.getKeyStore());
-				factory.setKeyStorePassphrase(ssl.getKeyStorePassword());
-				factory.setTrustStore(ssl.getTrustStore());
-				factory.setTrustStorePassphrase(ssl.getTrustStorePassword());
-			}
-			if (config.getConnectionTimeout() != null) {
-				factory.setConnectionTimeout(config.getConnectionTimeout());
-			}
-			factory.afterPropertiesSet();
-
-			rabbitConnectionFactory = factory.getObject();
-		}
-
-		CachingConnectionFactory connectionFactory = new CachingConnectionFactory(rabbitConnectionFactory);
-		connectionFactory.setAddresses(config.determineAddresses());
-		connectionFactory.setPublisherConfirms(config.isPublisherConfirms());
-		connectionFactory.setPublisherReturns(config.isPublisherReturns());
-		if (config.getCache().getChannel().getSize() != null) {
-			connectionFactory
-					.setChannelCacheSize(config.getCache().getChannel().getSize());
-		}
-		if (config.getCache().getConnection().getMode() != null) {
-			connectionFactory
-					.setCacheMode(config.getCache().getConnection().getMode());
-		}
-		if (config.getCache().getConnection().getSize() != null) {
-			connectionFactory.setConnectionCacheSize(
-					config.getCache().getConnection().getSize());
-		}
-		if (config.getCache().getChannel().getCheckoutTimeout() != null) {
-			connectionFactory.setChannelCheckoutTimeout(
-					config.getCache().getChannel().getCheckoutTimeout());
-		}
-		return connectionFactory;
 	}
 
 	@Override
@@ -291,8 +224,7 @@ public class RabbitMessageChannelBinder
 
 	@Override
 	protected MessageHandler createProducerMessageHandler(final ProducerDestination producerDestination,
-			ExtendedProducerProperties<RabbitProducerProperties> producerProperties, MessageChannel errorChannel)
-			throws Exception {
+			ExtendedProducerProperties<RabbitProducerProperties> producerProperties, MessageChannel errorChannel) {
 		String prefix = producerProperties.getExtension().getPrefix();
 		String exchangeName = producerDestination.getName();
 		String destination = StringUtils.isEmpty(prefix) ? exchangeName : exchangeName.substring(prefix.length());
