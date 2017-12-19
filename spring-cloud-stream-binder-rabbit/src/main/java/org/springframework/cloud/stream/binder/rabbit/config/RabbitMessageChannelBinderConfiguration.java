@@ -22,9 +22,7 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.RabbitConnectionFactoryBean;
 import org.springframework.amqp.support.postprocessor.DelegatingDecompressingPostProcessor;
 import org.springframework.amqp.support.postprocessor.GZipPostProcessor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.boot.autoconfigure.context.PropertyPlaceholderAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -70,13 +68,10 @@ public class RabbitMessageChannelBinderConfiguration {
 	private RabbitExtendedBindingProperties rabbitExtendedBindingProperties;
 
 	@Bean
-	RabbitMessageChannelBinder rabbitMessageChannelBinder(
-			@Qualifier("producerConnectionFactory") ObjectProvider<ConnectionFactory> producerConnectionFactory)
-			throws Exception {
-
+	RabbitMessageChannelBinder rabbitMessageChannelBinder() throws Exception {
 		RabbitMessageChannelBinder binder = new RabbitMessageChannelBinder(rabbitConnectionFactory, rabbitProperties,
 				provisioningProvider());
-		binder.setProducerConnectionFactory(obtainProducerConnectionFactory(producerConnectionFactory));
+		binder.setProducerConnectionFactory(buildProducerConnectionFactory());
 		binder.setCodec(codec);
 		binder.setAdminAddresses(rabbitBinderConfigurationProperties.getAdminAddresses());
 		binder.setCompressingPostProcessor(gZipPostProcessor());
@@ -86,27 +81,14 @@ public class RabbitMessageChannelBinderConfiguration {
 		return binder;
 	}
 
-	private ConnectionFactory obtainProducerConnectionFactory(
-			ObjectProvider<ConnectionFactory> connectionFactoryObjectProvider) throws Exception {
-
-		ConnectionFactory connectionFactory = connectionFactoryObjectProvider.getIfAvailable();
-
-		if (connectionFactory != null) {
-			return connectionFactory;
-		}
-		else {
-			return buildProducerConnectionFactory();
-		}
-	}
-
 	/**
 	 * @see org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration.RabbitConnectionFactoryCreator
 	 */
 	private CachingConnectionFactory buildProducerConnectionFactory() throws Exception {
 		com.rabbitmq.client.ConnectionFactory rabbitConnectionFactory;
 		if (this.rabbitConnectionFactory instanceof CachingConnectionFactory) {
-			rabbitConnectionFactory =
-					((CachingConnectionFactory) this.rabbitConnectionFactory).getRabbitConnectionFactory();
+			rabbitConnectionFactory = ((CachingConnectionFactory) this.rabbitConnectionFactory)
+					.getRabbitConnectionFactory();
 		}
 		else {
 			RabbitConnectionFactoryBean factory = new RabbitConnectionFactoryBean();
@@ -161,37 +143,10 @@ public class RabbitMessageChannelBinderConfiguration {
 		}
 
 		CachingConnectionFactory connectionFactory = new CachingConnectionFactory(rabbitConnectionFactory);
-		connectionFactory.setAddresses(this.rabbitProperties.determineAddresses());
-		connectionFactory.setPublisherConfirms(this.rabbitProperties.isPublisherConfirms());
-		connectionFactory.setPublisherReturns(this.rabbitProperties.isPublisherReturns());
 
-		RabbitProperties.Cache.Channel channel = this.rabbitProperties.getCache().getChannel();
-		RabbitProperties.Cache.Connection connection = this.rabbitProperties.getCache().getConnection();
+		RabbitServiceAutoConfiguration.configureCachingConnectionFactory(connectionFactory, this.applicationContext,
+				this.rabbitProperties);
 
-		Integer channelSize = channel.getSize();
-		if (channelSize != null) {
-			connectionFactory.setChannelCacheSize(channelSize);
-		}
-
-		Long channelCheckoutTimeout = channel.getCheckoutTimeout();
-		if (channelCheckoutTimeout != null) {
-			connectionFactory.setChannelCheckoutTimeout(
-					channelCheckoutTimeout);
-		}
-
-		CachingConnectionFactory.CacheMode connectionMode = connection.getMode();
-		if (connectionMode != null) {
-			connectionFactory.setCacheMode(connectionMode);
-		}
-
-		Integer connectionSize = connection.getSize();
-		if (connectionSize != null) {
-			connectionFactory.setConnectionCacheSize(connectionSize);
-		}
-
-		connectionFactory.setApplicationContext(this.applicationContext);
-		this.applicationContext.addApplicationListener(connectionFactory);
-		connectionFactory.afterPropertiesSet();
 
 		return connectionFactory;
 	}
