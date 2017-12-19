@@ -18,6 +18,7 @@ package org.springframework.cloud.stream.binder.rabbit.config;
 
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.amqp.RabbitHealthIndicator;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration;
@@ -29,6 +30,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.Cloud;
 import org.springframework.cloud.CloudFactory;
+import org.springframework.cloud.service.ServiceConnectorConfig;
 import org.springframework.cloud.stream.binder.Binder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -88,27 +90,36 @@ public class RabbitServiceAutoConfiguration {
 			protected static class UseCloudConnectors {
 
 				/**
-				 * Creates a {@link ConnectionFactory} using the singleton service
-				 * connector.
-				 *
+				 * Creates a {@link ConnectionFactory} using the singleton service connector.
 				 * @param cloud {@link Cloud} instance to be used for accessing services.
+				 * @param connectorConfigObjectProvider the {@link ObjectProvider} for the
+				 * {@link ServiceConnectorConfig}; in this case the expectation is about
+				 * {@code org.springframework.cloud.service.messaging.RabbitConnectionFactoryConfig}.
 				 * @return the {@link ConnectionFactory} used by the binder.
 				 */
 				@Bean
 				@Primary
-				ConnectionFactory rabbitConnectionFactory(Cloud cloud) {
-					return cloud.getSingletonServiceConnector(ConnectionFactory.class, null);
+				ConnectionFactory rabbitConnectionFactory(Cloud cloud,
+						ObjectProvider<ServiceConnectorConfig> connectorConfigObjectProvider) {
+
+					return cloud.getSingletonServiceConnector(ConnectionFactory.class,
+							connectorConfigObjectProvider.getIfAvailable());
 				}
 
 				/**
 				 * Creates a {@link ConnectionFactory} for non-transactional producers
 				 * using the singleton service connector.
 				 * @param cloud {@link Cloud} instance to be used for accessing services.
+				 * @param connectorConfigObjectProvider the {@link ObjectProvider} for the
+				 * {@link ServiceConnectorConfig}; in this case the expectation is about
+				 * {@code org.springframework.cloud.service.messaging.RabbitConnectionFactoryConfig}.
 				 * @return the {@link ConnectionFactory} used by the binder for non-transactional producers.
 				 */
 				@Bean
-				ConnectionFactory producerConnectionFactory(Cloud cloud) {
-					return cloud.getSingletonServiceConnector(ConnectionFactory.class, null);
+				ConnectionFactory producerConnectionFactory(Cloud cloud,
+						ObjectProvider<ServiceConnectorConfig> connectorConfigObjectProvider) {
+					return cloud.getSingletonServiceConnector(ConnectionFactory.class,
+							connectorConfigObjectProvider.getIfAvailable());
 				}
 
 				@Bean
