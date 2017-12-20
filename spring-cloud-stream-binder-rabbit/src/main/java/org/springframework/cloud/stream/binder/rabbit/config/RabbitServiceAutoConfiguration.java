@@ -16,6 +16,7 @@
 
 package org.springframework.cloud.stream.binder.rabbit.config;
 
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.ObjectProvider;
@@ -32,6 +33,7 @@ import org.springframework.cloud.Cloud;
 import org.springframework.cloud.CloudFactory;
 import org.springframework.cloud.service.messaging.RabbitConnectionFactoryConfig;
 import org.springframework.cloud.stream.binder.Binder;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -82,8 +84,7 @@ public class RabbitServiceAutoConfiguration {
 			 * {@code true}.
 			 */
 			@Configuration
-			@ConditionalOnProperty(value = "spring.cloud.stream.overrideCloudConnectors", havingValue = "false",
-					matchIfMissing = true)
+			@ConditionalOnProperty(value = "spring.cloud.stream.overrideCloudConnectors", havingValue = "false", matchIfMissing = true)
 			// Required to parse Rabbit properties which are passed to the binder for
 			// clustering. We need to enable it here explicitly as the default Rabbit
 			// configuration is not triggered.
@@ -100,26 +101,17 @@ public class RabbitServiceAutoConfiguration {
 				@Bean
 				@Primary
 				ConnectionFactory rabbitConnectionFactory(Cloud cloud,
-						ObjectProvider<RabbitConnectionFactoryConfig> connectorConfigObjectProvider) {
+						ObjectProvider<RabbitConnectionFactoryConfig> connectorConfigObjectProvider,
+						ConfigurableApplicationContext applicationContext,
+						RabbitProperties rabbitProperties) throws Exception {
 
-					return cloud.getSingletonServiceConnector(ConnectionFactory.class,
+					ConnectionFactory connectionFactory = cloud.getSingletonServiceConnector(ConnectionFactory.class,
 							connectorConfigObjectProvider.getIfUnique());
-				}
 
-				/**
-				 * Creates a {@link ConnectionFactory} for non-transactional producers using the singleton
-				 * service connector.
-				 * @param cloud {@link Cloud} instance to be used for accessing services.
-				 * @param connectorConfigObjectProvider the {@link ObjectProvider} for the
-				 * {@link RabbitConnectionFactoryConfig}.
-				 * @return the {@link ConnectionFactory} used by the binder for non-transactional
-				 * producers.
-				 */
-				@Bean
-				ConnectionFactory producerConnectionFactory(Cloud cloud,
-						ObjectProvider<RabbitConnectionFactoryConfig> connectorConfigObjectProvider) {
-					return cloud.getSingletonServiceConnector(ConnectionFactory.class,
-							connectorConfigObjectProvider.getIfUnique());
+					configureCachingConnectionFactory((CachingConnectionFactory) connectionFactory,
+							applicationContext, rabbitProperties);
+
+					return connectionFactory;
 				}
 
 				@Bean
@@ -170,6 +162,31 @@ public class RabbitServiceAutoConfiguration {
 			return new RabbitHealthIndicator(rabbitTemplate);
 		}
 
+	}
+
+	static void configureCachingConnectionFactory(CachingConnectionFactory connectionFactory,
+			ConfigurableApplicationContext applicationContext, RabbitProperties rabbitProperties) throws Exception {
+
+		connectionFactory.setAddresses(rabbitProperties.determineAddresses());
+		connectionFactory.setPublisherConfirms(rabbitProperties.isPublisherConfirms());
+		connectionFactory.setPublisherReturns(rabbitProperties.isPublisherReturns());
+		if (rabbitProperties.getCache().getChannel().getSize() != null) {
+			connectionFactory.setChannelCacheSize(rabbitProperties.getCache().getChannel().getSize());
+		}
+		if (rabbitProperties.getCache().getConnection().getMode() != null) {
+			connectionFactory.setCacheMode(rabbitProperties.getCache().getConnection().getMode());
+		}
+		if (rabbitProperties.getCache().getConnection().getSize() != null) {
+			connectionFactory.setConnectionCacheSize(
+					rabbitProperties.getCache().getConnection().getSize());
+		}
+		if (rabbitProperties.getCache().getChannel().getCheckoutTimeout() != null) {
+			connectionFactory.setChannelCheckoutTimeout(
+					rabbitProperties.getCache().getChannel().getCheckoutTimeout());
+		}
+		connectionFactory.setApplicationContext(applicationContext);
+		applicationContext.addApplicationListener(connectionFactory);
+		connectionFactory.afterPropertiesSet();
 	}
 
 }
