@@ -52,6 +52,7 @@ import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.ExtendedPropertiesBinder;
 import org.springframework.cloud.stream.binder.HeaderMode;
+import org.springframework.cloud.stream.binder.rabbit.config.ListenerContainerCustomizer;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitCommonProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitConsumerProperties;
 import org.springframework.cloud.stream.binder.rabbit.properties.RabbitExtendedBindingProperties;
@@ -125,6 +126,8 @@ public class RabbitMessageChannelBinder
 
 	private final RabbitProperties rabbitProperties;
 
+	private final ListenerContainerCustomizer containerCustomizer;
+
 	private boolean destroyConnectionFactory;
 
 	private ConnectionFactory connectionFactory;
@@ -143,11 +146,18 @@ public class RabbitMessageChannelBinder
 
 	public RabbitMessageChannelBinder(ConnectionFactory connectionFactory, RabbitProperties rabbitProperties,
 			RabbitExchangeQueueProvisioner provisioningProvider) {
+		this(connectionFactory, rabbitProperties, provisioningProvider, null);
+	}
+
+	public RabbitMessageChannelBinder(ConnectionFactory connectionFactory, RabbitProperties rabbitProperties,
+			RabbitExchangeQueueProvisioner provisioningProvider,
+			ListenerContainerCustomizer containerCustomizer) {
 		super(new String[0], provisioningProvider);
 		Assert.notNull(connectionFactory, "connectionFactory must not be null");
 		Assert.notNull(rabbitProperties, "rabbitProperties must not be null");
 		this.connectionFactory = connectionFactory;
 		this.rabbitProperties = rabbitProperties;
+		this.containerCustomizer = containerCustomizer == null ? (c, q, g) -> { } : containerCustomizer;
 	}
 
 	/**
@@ -380,6 +390,7 @@ public class RabbitMessageChannelBinder
 		else if (getApplicationContext() != null) {
 			listenerContainer.setApplicationEventPublisher(getApplicationContext());
 		}
+		this.containerCustomizer.configure(listenerContainer, consumerDestination.getName(), group);
 		listenerContainer.afterPropertiesSet();
 
 		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(listenerContainer);
