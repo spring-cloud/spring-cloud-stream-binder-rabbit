@@ -65,6 +65,8 @@ import org.springframework.cloud.stream.config.ListenerContainerCustomizer;
 import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.cloud.stream.provisioning.ProducerDestination;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.expression.Expression;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.amqp.inbound.AmqpMessageSource;
 import org.springframework.integration.amqp.outbound.AmqpOutboundEndpoint;
@@ -105,6 +107,7 @@ import com.rabbitmq.client.Envelope;
  * @author David Turanski
  * @author Marius Bogoevici
  * @author Artem Bilan
+ * @author Oleg Zhurakousky
  */
 public class RabbitMessageChannelBinder
 		extends AbstractMessageChannelBinder<ExtendedConsumerProperties<RabbitConsumerProperties>,
@@ -248,7 +251,7 @@ public class RabbitMessageChannelBinder
 		endpoint.setExchangeName(producerDestination.getName());
 		RabbitProducerProperties extendedProperties = producerProperties.getExtension();
 		boolean expressionInterceptorNeeded = expressionInterceptorNeeded(extendedProperties);
-		String routingKeyExpression = extendedProperties.getRoutingKeyExpression();
+		Expression routingKeyExpression = extendedProperties.getRoutingKeyExpression();
 		if (!producerProperties.isPartitioned()) {
 			if (routingKeyExpression == null) {
 				endpoint.setRoutingKey(destination);
@@ -259,21 +262,21 @@ public class RabbitMessageChannelBinder
 							+ RabbitExpressionEvaluatingInterceptor.ROUTING_KEY_HEADER + "']");
 				}
 				else {
-					endpoint.setRoutingKeyExpressionString(routingKeyExpression);
+					endpoint.setRoutingKeyExpression(routingKeyExpression);
 				}
 			}
 		}
 		else {
 			if (routingKeyExpression == null) {
-				endpoint.setRoutingKeyExpressionString(buildPartitionRoutingExpression(destination, false));
+				endpoint.setRoutingKeyExpression(buildPartitionRoutingExpression(destination, false));
 			}
 			else {
 				if (expressionInterceptorNeeded) {
-					endpoint.setRoutingKeyExpressionString(buildPartitionRoutingExpression("headers['"
+					endpoint.setRoutingKeyExpression(buildPartitionRoutingExpression("headers['"
 							+ RabbitExpressionEvaluatingInterceptor.ROUTING_KEY_HEADER + "']", true));
 				}
 				else {
-					endpoint.setRoutingKeyExpressionString(buildPartitionRoutingExpression(routingKeyExpression,
+					endpoint.setRoutingKeyExpression(buildPartitionRoutingExpression(routingKeyExpression.getExpressionString(),
 							true));
 				}
 			}
@@ -284,7 +287,7 @@ public class RabbitMessageChannelBinder
 						+ RabbitExpressionEvaluatingInterceptor.DELAY_HEADER + "']");
 			}
 			else {
-				endpoint.setDelayExpressionString(extendedProperties.getDelayExpression());
+				endpoint.setDelayExpression(extendedProperties.getDelayExpression());
 			}
 		}
 		DefaultAmqpHeaderMapper mapper = DefaultAmqpHeaderMapper.outboundMapper();
@@ -322,9 +325,9 @@ public class RabbitMessageChannelBinder
 
 	private boolean expressionInterceptorNeeded(RabbitProducerProperties extendedProperties) {
 		return extendedProperties.getRoutingKeyExpression() != null
-					&& extendedProperties.getRoutingKeyExpression().contains("payload")
+					&& extendedProperties.getRoutingKeyExpression().getExpressionString().contains("payload")
 				|| (extendedProperties.getDelayExpression() != null
-					&& extendedProperties.getDelayExpression().contains("payload"));
+					&& extendedProperties.getDelayExpression().getExpressionString().contains("payload"));
 	}
 
 	private void checkConnectionFactoryIsErrorCapable() {
@@ -349,10 +352,11 @@ public class RabbitMessageChannelBinder
 		}
 	}
 
-	private String buildPartitionRoutingExpression(String expressionRoot, boolean rootIsExpression) {
-		return rootIsExpression
+	private Expression buildPartitionRoutingExpression(String expressionRoot, boolean rootIsExpression) {
+		String partitionRoutingExpression = rootIsExpression
 				? expressionRoot + " + '-' + headers['" + BinderHeaders.PARTITION_HEADER + "']"
 				: "'" + expressionRoot + "-' + headers['" + BinderHeaders.PARTITION_HEADER + "']";
+		return new SpelExpressionParser().parseExpression(partitionRoutingExpression);
 	}
 
 	@Override

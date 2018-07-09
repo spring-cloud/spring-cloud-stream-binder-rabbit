@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 the original author or authors.
+ * Copyright 2017-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,18 @@ import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.support.ChannelInterceptorAdapter;
+import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.util.Assert;
 
 /**
  * Interceptor to evaluate expressions for outbound messages before serialization.
  *
  * @author Gary Russell
+ * @author Oleg Zhurakousky
  * @since 2.0
  *
  */
-public class RabbitExpressionEvaluatingInterceptor extends ChannelInterceptorAdapter {
+public class RabbitExpressionEvaluatingInterceptor implements ChannelInterceptor {
 
 	public static final ExpressionParser PARSER = new SpelExpressionParser();
 
@@ -54,19 +55,19 @@ public class RabbitExpressionEvaluatingInterceptor extends ChannelInterceptorAda
 	 * @param delayExpression the delay expression.
 	 * @param evaluationContext the evaluation context.
 	 */
-	public RabbitExpressionEvaluatingInterceptor(String routingKeyExpression, String delayExpression,
+	public RabbitExpressionEvaluatingInterceptor(Expression routingKeyExpression, Expression delayExpression,
 			EvaluationContext evaluationContext) {
 		Assert.isTrue(routingKeyExpression != null || delayExpression != null,
 				"At least one expression is required");
 		Assert.notNull(evaluationContext, "the 'evaluationContext' cannot be null");
 		if (routingKeyExpression != null) {
-			this.routingKeyExpression = PARSER.parseExpression(routingKeyExpression);
+			this.routingKeyExpression = routingKeyExpression;
 		}
 		else {
 			this.routingKeyExpression = null;
 		}
 		if (delayExpression != null) {
-			this.delayExpression = PARSER.parseExpression(delayExpression);
+			this.delayExpression = delayExpression;
 		}
 		else {
 			this.delayExpression = null;
