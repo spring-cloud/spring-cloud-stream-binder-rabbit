@@ -322,7 +322,7 @@ public class RabbitMessageChannelBinder
 				GenericApplicationContext context = (GenericApplicationContext) getApplicationContext();
 				context.registerBean(ackChannelBeanName, DirectChannel.class, () -> new DirectChannel());
 			}
-			endpoint.setConfirmAckChannel(getApplicationContext().getBean(ackChannelBeanName, MessageChannel.class));
+			endpoint.setConfirmAckChannelName(ackChannelBeanName);
 			endpoint.setConfirmCorrelationExpressionString("#root");
 			endpoint.setErrorMessageStrategy(new DefaultErrorMessageStrategy());
 		}
