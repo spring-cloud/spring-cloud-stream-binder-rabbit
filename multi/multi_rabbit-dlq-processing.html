@@ -1,0 +1,204 @@
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+   <title>6.&nbsp;Dead-Letter Queue Processing</title><link rel="stylesheet" type="text/css" href="css/manual-multipage.css"><meta name="generator" content="DocBook XSL Stylesheets V1.79.1"><link rel="home" href="multi_spring-cloud-stream-binder-rabbit.html" title="Spring Cloud Stream RabbitMQ Binder Reference Guide"><link rel="up" href="multi__reference_guide.html" title="Part&nbsp;I.&nbsp;Reference Guide"><link rel="prev" href="multi_rabbit-error-channels.html" title="5.&nbsp;Error Channels"><link rel="next" href="multi__partitioning_with_the_rabbitmq_binder.html" title="7.&nbsp;Partitioning with the RabbitMQ Binder"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="navheader"><table width="100%" summary="Navigation header"><tr><th colspan="3" align="center">6.&nbsp;Dead-Letter Queue Processing</th></tr><tr><td width="20%" align="left"><a accesskey="p" href="multi_rabbit-error-channels.html">Prev</a>&nbsp;</td><th width="60%" align="center">Part&nbsp;I.&nbsp;Reference Guide</th><td width="20%" align="right">&nbsp;<a accesskey="n" href="multi__partitioning_with_the_rabbitmq_binder.html">Next</a></td></tr></table><hr></div><div class="chapter"><div class="titlepage"><div><div><h2 class="title"><a name="rabbit-dlq-processing" href="#rabbit-dlq-processing"></a>6.&nbsp;Dead-Letter Queue Processing</h2></div></div></div><p>Because you cannot anticipate how users would want to dispose of dead-lettered messages, the framework does not provide any standard mechanism to handle them.
+If the reason for the dead-lettering is transient, you may wish to route the messages back to the original queue.
+However, if the problem is a permanent issue, that could cause an infinite loop.
+The following Spring Boot application shows an example of how to route those messages back to the original queue but moves them to a third <span class="quote">&#8220;<span class="quote">parking lot</span>&#8221;</span> queue after three attempts.
+The second example uses the <a class="link" href="https://www.rabbitmq.com/blog/2015/04/16/scheduling-messages-with-rabbitmq/" target="_top">RabbitMQ Delayed Message Exchange</a> to introduce a delay to the re-queued message.
+In this example, the delay increases for each attempt.
+These examples use a <code class="literal">@RabbitListener</code> to receive messages from the DLQ.
+You could also use <code class="literal">RabbitTemplate.receive()</code> in a batch process.</p><p>The examples assume the original destination is <code class="literal">so8400in</code> and the consumer group is <code class="literal">so8400</code>.</p><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="_non_partitioned_destinations" href="#_non_partitioned_destinations"></a>6.1&nbsp;Non-Partitioned Destinations</h2></div></div></div><p>The first two examples are for when the destination is <span class="strong"><strong>not</strong></span> partitioned:</p><pre class="programlisting"><em><span class="hl-annotation" style="color: gray">@SpringBootApplication</span></em>
+<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">class</span> ReRouteDlqApplication {
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String ORIGINAL_QUEUE = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"so8400in.so8400"</span>;
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String DLQ = ORIGINAL_QUEUE + <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">".dlq"</span>;
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String PARKING_LOT = ORIGINAL_QUEUE + <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">".parkingLot"</span>;
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String X_RETRIES_HEADER = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"x-retries"</span>;
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">void</span> main(String[] args) <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">throws</span> Exception {
+        ConfigurableApplicationContext context = SpringApplication.run(ReRouteDlqApplication.<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">class</span>, args);
+        System.out.println(<span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"Hit enter to terminate"</span>);
+        System.in.read();
+        context.close();
+    }
+
+    <em><span class="hl-annotation" style="color: gray">@Autowired</span></em>
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> RabbitTemplate rabbitTemplate;
+
+    <em><span class="hl-annotation" style="color: gray">@RabbitListener(queues = DLQ)</span></em>
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">void</span> rePublish(Message failedMessage) {
+        Integer retriesHeader = (Integer) failedMessage.getMessageProperties().getHeaders().get(X_RETRIES_HEADER);
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">if</span> (retriesHeader == null) {
+            retriesHeader = Integer.valueOf(<span class="hl-number">0</span>);
+        }
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">if</span> (retriesHeader &lt; <span class="hl-number">3</span>) {
+            failedMessage.getMessageProperties().getHeaders().put(X_RETRIES_HEADER, retriesHeader + <span class="hl-number">1</span>);
+            <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">this</span>.rabbitTemplate.send(ORIGINAL_QUEUE, failedMessage);
+        }
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">else</span> {
+            <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">this</span>.rabbitTemplate.send(PARKING_LOT, failedMessage);
+        }
+    }
+
+    <em><span class="hl-annotation" style="color: gray">@Bean</span></em>
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> Queue parkingLot() {
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">return</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">new</span> Queue(PARKING_LOT);
+    }
+
+}</pre><pre class="programlisting"><em><span class="hl-annotation" style="color: gray">@SpringBootApplication</span></em>
+<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">class</span> ReRouteDlqApplication {
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String ORIGINAL_QUEUE = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"so8400in.so8400"</span>;
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String DLQ = ORIGINAL_QUEUE + <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">".dlq"</span>;
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String PARKING_LOT = ORIGINAL_QUEUE + <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">".parkingLot"</span>;
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String X_RETRIES_HEADER = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"x-retries"</span>;
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String DELAY_EXCHANGE = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"dlqReRouter"</span>;
+
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">void</span> main(String[] args) <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">throws</span> Exception {
+        ConfigurableApplicationContext context = SpringApplication.run(ReRouteDlqApplication.<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">class</span>, args);
+        System.out.println(<span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"Hit enter to terminate"</span>);
+        System.in.read();
+        context.close();
+    }
+
+    <em><span class="hl-annotation" style="color: gray">@Autowired</span></em>
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> RabbitTemplate rabbitTemplate;
+
+    <em><span class="hl-annotation" style="color: gray">@RabbitListener(queues = DLQ)</span></em>
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">void</span> rePublish(Message failedMessage) {
+        Map&lt;String, Object&gt; headers = failedMessage.getMessageProperties().getHeaders();
+        Integer retriesHeader = (Integer) headers.get(X_RETRIES_HEADER);
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">if</span> (retriesHeader == null) {
+            retriesHeader = Integer.valueOf(<span class="hl-number">0</span>);
+        }
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">if</span> (retriesHeader &lt; <span class="hl-number">3</span>) {
+            headers.put(X_RETRIES_HEADER, retriesHeader + <span class="hl-number">1</span>);
+            headers.put(<span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"x-delay"</span>, <span class="hl-number">5000</span> * retriesHeader);
+            <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">this</span>.rabbitTemplate.send(DELAY_EXCHANGE, ORIGINAL_QUEUE, failedMessage);
+        }
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">else</span> {
+            <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">this</span>.rabbitTemplate.send(PARKING_LOT, failedMessage);
+        }
+    }
+
+    <em><span class="hl-annotation" style="color: gray">@Bean</span></em>
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> DirectExchange delayExchange() {
+        DirectExchange exchange = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">new</span> DirectExchange(DELAY_EXCHANGE);
+        exchange.setDelayed(true);
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">return</span> exchange;
+    }
+
+    <em><span class="hl-annotation" style="color: gray">@Bean</span></em>
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> Binding bindOriginalToDelay() {
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">return</span> BindingBuilder.bind(<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">new</span> Queue(ORIGINAL_QUEUE)).to(delayExchange()).with(ORIGINAL_QUEUE);
+    }
+
+    <em><span class="hl-annotation" style="color: gray">@Bean</span></em>
+    <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> Queue parkingLot() {
+        <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">return</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">new</span> Queue(PARKING_LOT);
+    }
+
+}</pre></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="_partitioned_destinations" href="#_partitioned_destinations"></a>6.2&nbsp;Partitioned Destinations</h2></div></div></div><p>With partitioned destinations, there is one DLQ for all partitions. We determine the original queue from the headers.</p><div class="section"><div class="titlepage"><div><div><h3 class="title"><a name="_republishtodlqfalse" href="#_republishtodlqfalse"></a>6.2.1&nbsp;<code class="literal">republishToDlq=false</code></h3></div></div></div><p>When <code class="literal">republishToDlq</code> is <code class="literal">false</code>, RabbitMQ publishes the message to the DLX/DLQ with an <code class="literal">x-death</code> header containing information about the original destination, as shown in the following example:</p><pre class="programlisting"><em><span class="hl-annotation" style="color: gray">@SpringBootApplication</span></em>
+<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">class</span> ReRouteDlqApplication {
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String ORIGINAL_QUEUE = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"so8400in.so8400"</span>;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String DLQ = ORIGINAL_QUEUE + <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">".dlq"</span>;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String PARKING_LOT = ORIGINAL_QUEUE + <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">".parkingLot"</span>;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String X_DEATH_HEADER = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"x-death"</span>;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String X_RETRIES_HEADER = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"x-retries"</span>;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">void</span> main(String[] args) <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">throws</span> Exception {
+		ConfigurableApplicationContext context = SpringApplication.run(ReRouteDlqApplication.<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">class</span>, args);
+		System.out.println(<span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"Hit enter to terminate"</span>);
+		System.in.read();
+		context.close();
+	}
+
+	<em><span class="hl-annotation" style="color: gray">@Autowired</span></em>
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> RabbitTemplate rabbitTemplate;
+
+	<em><span class="hl-annotation" style="color: gray">@SuppressWarnings("unchecked")</span></em>
+	<em><span class="hl-annotation" style="color: gray">@RabbitListener(queues = DLQ)</span></em>
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">void</span> rePublish(Message failedMessage) {
+		Map&lt;String, Object&gt; headers = failedMessage.getMessageProperties().getHeaders();
+		Integer retriesHeader = (Integer) headers.get(X_RETRIES_HEADER);
+		<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">if</span> (retriesHeader == null) {
+			retriesHeader = Integer.valueOf(<span class="hl-number">0</span>);
+		}
+		<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">if</span> (retriesHeader &lt; <span class="hl-number">3</span>) {
+			headers.put(X_RETRIES_HEADER, retriesHeader + <span class="hl-number">1</span>);
+			List&lt;Map&lt;String, ?&gt;&gt; xDeath = (List&lt;Map&lt;String, ?&gt;&gt;) headers.get(X_DEATH_HEADER);
+			String exchange = (String) xDeath.get(<span class="hl-number">0</span>).get(<span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"exchange"</span>);
+			List&lt;String&gt; routingKeys = (List&lt;String&gt;) xDeath.get(<span class="hl-number">0</span>).get(<span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"routing-keys"</span>);
+			<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">this</span>.rabbitTemplate.send(exchange, routingKeys.get(<span class="hl-number">0</span>), failedMessage);
+		}
+		<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">else</span> {
+			<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">this</span>.rabbitTemplate.send(PARKING_LOT, failedMessage);
+		}
+	}
+
+	<em><span class="hl-annotation" style="color: gray">@Bean</span></em>
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> Queue parkingLot() {
+		<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">return</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">new</span> Queue(PARKING_LOT);
+	}
+
+}</pre></div><div class="section"><div class="titlepage"><div><div><h3 class="title"><a name="_republishtodlqtrue" href="#_republishtodlqtrue"></a>6.2.2&nbsp;<code class="literal">republishToDlq=true</code></h3></div></div></div><p>When <code class="literal">republishToDlq</code> is <code class="literal">true</code>, the republishing recoverer adds the original exchange and routing key to headers, as shown in the following example:</p><pre class="programlisting"><em><span class="hl-annotation" style="color: gray">@SpringBootApplication</span></em>
+<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">class</span> ReRouteDlqApplication {
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String ORIGINAL_QUEUE = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"so8400in.so8400"</span>;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String DLQ = ORIGINAL_QUEUE + <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">".dlq"</span>;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String PARKING_LOT = ORIGINAL_QUEUE + <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">".parkingLot"</span>;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String X_RETRIES_HEADER = <span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"x-retries"</span>;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String X_ORIGINAL_EXCHANGE_HEADER = RepublishMessageRecoverer.X_ORIGINAL_EXCHANGE;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">final</span> String X_ORIGINAL_ROUTING_KEY_HEADER = RepublishMessageRecoverer.X_ORIGINAL_ROUTING_KEY;
+
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">static</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">void</span> main(String[] args) <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">throws</span> Exception {
+		ConfigurableApplicationContext context = SpringApplication.run(ReRouteDlqApplication.<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">class</span>, args);
+		System.out.println(<span xmlns:d="http://docbook.org/ns/docbook" class="hl-string">"Hit enter to terminate"</span>);
+		System.in.read();
+		context.close();
+	}
+
+	<em><span class="hl-annotation" style="color: gray">@Autowired</span></em>
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">private</span> RabbitTemplate rabbitTemplate;
+
+	<em><span class="hl-annotation" style="color: gray">@RabbitListener(queues = DLQ)</span></em>
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">void</span> rePublish(Message failedMessage) {
+		Map&lt;String, Object&gt; headers = failedMessage.getMessageProperties().getHeaders();
+		Integer retriesHeader = (Integer) headers.get(X_RETRIES_HEADER);
+		<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">if</span> (retriesHeader == null) {
+			retriesHeader = Integer.valueOf(<span class="hl-number">0</span>);
+		}
+		<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">if</span> (retriesHeader &lt; <span class="hl-number">3</span>) {
+			headers.put(X_RETRIES_HEADER, retriesHeader + <span class="hl-number">1</span>);
+			String exchange = (String) headers.get(X_ORIGINAL_EXCHANGE_HEADER);
+			String originalRoutingKey = (String) headers.get(X_ORIGINAL_ROUTING_KEY_HEADER);
+			<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">this</span>.rabbitTemplate.send(exchange, originalRoutingKey, failedMessage);
+		}
+		<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">else</span> {
+			<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">this</span>.rabbitTemplate.send(PARKING_LOT, failedMessage);
+		}
+	}
+
+	<em><span class="hl-annotation" style="color: gray">@Bean</span></em>
+	<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">public</span> Queue parkingLot() {
+		<span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">return</span> <span xmlns:d="http://docbook.org/ns/docbook" class="hl-keyword">new</span> Queue(PARKING_LOT);
+	}
+
+}</pre></div></div></div><div class="navfooter"><hr><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="multi_rabbit-error-channels.html">Prev</a>&nbsp;</td><td width="20%" align="center"><a accesskey="u" href="multi__reference_guide.html">Up</a></td><td width="40%" align="right">&nbsp;<a accesskey="n" href="multi__partitioning_with_the_rabbitmq_binder.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">5.&nbsp;Error Channels&nbsp;</td><td width="20%" align="center"><a accesskey="h" href="multi_spring-cloud-stream-binder-rabbit.html">Home</a></td><td width="40%" align="right" valign="top">&nbsp;7.&nbsp;Partitioning with the RabbitMQ Binder</td></tr></table></div></body></html>
