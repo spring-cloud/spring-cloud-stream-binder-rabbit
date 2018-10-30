@@ -1,6 +1,6 @@
 ---
 # The name of your project
-title: Spring Cloud Stream Binder Rabbit
+title: Spring Cloud Stream Binder rabbit
 
 badges:
 
@@ -23,12 +23,15 @@ badges:
 
 <!-- Specify the parent of this project (or delete if none) to influence the rendering of the breadcrumb -->
 {% capture parent_link %}
-[Spring Cloud]({{ site.projects_site_url }}/spring-cloud)
+[Spring Cloud]({{ site.projects_site_url }}/spring-cloud-stream)
 {% endcapture %}
 
 {% capture billboard_description %}
 
-Spring Cloud Stream Rabbit binder provides implementation of Spring Cloud Stream binding API for RabbitMQ, allowing transparent connectivity of Spring Cloud Stream microservices to RabbitMQ destinations(e.g., exchanges & queues).
+Spring Cloud Stream rabbit binder provides implementation of Spring Cloud Stream binding API for Apache rabbit, allowing transparent connectivity of Spring Cloud Stream microservices to Apache rabbit destinations (e.g., topics).
+{% endcapture %}
+
+{% capture main_content %}
 
 <span id="quick-start"></span>
 
@@ -37,7 +40,7 @@ Spring Cloud Stream Rabbit binder provides implementation of Spring Cloud Stream
 <script type="text/javascript">{% include custom.js %}</script>
 {% include download_widget.md %}
 
-As long as Spring Cloud Stream and a [Spring Cloud Stream Rabbit Binder](https://github.com/spring-cloud/spring-cloud-stream-binder-rabbit) dependencies are on the classpath any Spring Boot application with `@EnableBinding` is capable to bind to RabbitMQ destinations.
+As long as Spring Cloud Stream and a [Spring Cloud Stream Rabbit Binder](https://github.com/spring-cloud/spring-cloud-stream-binder-rabbit) dependencies are on the classpath any Spring Boot application with `@EnableBinding` is capable to bind to Apache rabbit destinations.
 
 For more comprehansive step-by-step _getting started_ experience please refer to the
 [Quick Start](https://docs.spring.io/spring-cloud-stream/docs/Elmhurst.RELEASE/reference/htmlsingle/#_quick_start) section of the user guide.

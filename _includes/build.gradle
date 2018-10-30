@@ -14,5 +14,5 @@ dependencyManagement {
 
 dependencies {
     compile '{@= groupId @}:spring-cloud-stream'
-    compile 'org.springframework.cloud:spring-cloud-starter-stream-kafka'
+    compile 'org.springframework.cloud:spring-cloud-starter-stream-rabbit'
 }
