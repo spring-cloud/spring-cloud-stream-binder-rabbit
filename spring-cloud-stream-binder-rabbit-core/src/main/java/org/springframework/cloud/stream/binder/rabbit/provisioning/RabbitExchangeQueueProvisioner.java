@@ -130,8 +130,13 @@ public class RabbitExchangeQueueProvisioner implements ApplicationListener<Decla
 	public ConsumerDestination provisionConsumerDestination(String name, String group,
 			ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
 		boolean anonymous = !StringUtils.hasText(group);
-		String  baseQueueName = anonymous ? groupedName(name, ANONYMOUS_GROUP_NAME_GENERATOR.generateName())
-					: properties.getExtension().isQueueNameGroupOnly() ? group : groupedName(name, group);
+		String  baseQueueName;
+		if (properties.getExtension().isQueueNameGroupOnly()) {
+				baseQueueName =  anonymous ? ANONYMOUS_GROUP_NAME_GENERATOR.generateName() : group;
+		}
+		else {
+				baseQueueName = groupedName(name, anonymous ? ANONYMOUS_GROUP_NAME_GENERATOR.generateName() : group);
+		}
 		if (this.logger.isInfoEnabled()) {
 			this.logger.info("declaring queue for inbound: " + baseQueueName + ", bound to: " + name);
 		}
