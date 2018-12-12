@@ -4,7 +4,7 @@
 <book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" version="5.0" xml:lang="en">
 <info>
 <title>Spring Cloud Stream RabbitMQ Binder Reference Guide</title>
-<date>2018-10-30</date>
+<date>2018-12-12</date>
 <author>
 <personname>
 <firstname>Sabby Anandan, Marius Bogoevici, Eric Bottard, Mark Fisher, Ilayaperumal Gopinathan, Gunnar Hillert, Mark Pollack, Patrick Peralta, Glenn Renfro, Thomas Risberg, Dave Syer, David Turanski, Janne Valkealahti, Benjamin Klein, Gary Russell, Jay Bryant</firstname>
@@ -158,7 +158,7 @@ For partitioned destinations, <literal>-&lt;instanceIndex&gt;</literal> is appen
 <varlistentry>
 <term>bindQueue</term>
 <listitem>
-<simpara>Whether to bind the queue to the destination exchange.
+<simpara>Whether to declare the queue and bind it to the destination exchange.
 Set it to <literal>false</literal> if you have set up your own infrastructure and have previously created and bound the queue.</simpara>
 <simpara>Default: <literal>true</literal>.</simpara>
 </listitem>
@@ -564,7 +564,7 @@ Only applies if <literal>requiredGroups</literal> are provided and then only to 
 <varlistentry>
 <term>bindQueue</term>
 <listitem>
-<simpara>Whether to bind the queue to the destination exchange.
+<simpara>Whether to declare the queue and bind it to the destination exchange.
 Set it to <literal>false</literal> if you have set up your own infrastructure and have previously created and bound the queue.
 Only applies if <literal>requiredGroups</literal> are provided and then only to those groups.</simpara>
 <simpara>Default: <literal>true</literal>.</simpara>
