@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?asciidoc-toc maxdepth="4"?>
 <?asciidoc-numbered?>
-<book xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" version="5.0" xml:lang="en">
+<book xmlns="https://docbook.org/ns/docbook" xmlns:xl="https://www.w3.org/1999/xlink" version="5.0" xml:lang="en">
 <info>
 <title>Spring Cloud Stream RabbitMQ Binder Reference Guide</title>
 <date>2018-12-13</date>
@@ -38,7 +38,7 @@ It contains information about its design, usage and configuration options, as we
 <title>RabbitMQ Binder</title>
 <mediaobject>
 <imageobject>
-<imagedata fileref="http://raw.github.com/spring-cloud/spring-cloud-stream-binder-rabbit/master/docs/src/main/asciidoc/images/rabbit-binder.png" width="50%"/>
+<imagedata fileref="https://raw.github.com/spring-cloud/spring-cloud-stream-binder-rabbit/master/docs/src/main/asciidoc/images/rabbit-binder.png" width="50%"/>
 </imageobject>
 <textobject><phrase>rabbit binder</phrase></textobject>
 </mediaobject>
@@ -85,7 +85,7 @@ You can exclude the class by using the <literal>@SpringBootApplication</literal>
 <title>RabbitMQ Binder Properties</title>
 <simpara>By default, the RabbitMQ binder uses Spring Boot&#8217;s <literal>ConnectionFactory</literal>.
 Conseuqently, it supports all Spring Boot configuration options for RabbitMQ.
-(For reference, see the <link xl:href="http://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#common-application-properties">Spring Boot documentation</link>).
+(For reference, see the <link xl:href="https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#common-application-properties">Spring Boot documentation</link>).
 RabbitMQ configuration options use the <literal>spring.rabbitmq</literal> prefix.</simpara>
 <simpara>In addition to Spring Boot options, the RabbitMQ binder supports the following properties:</simpara>
 <variablelist>
@@ -1370,7 +1370,7 @@ source control.</simpara>
 </note>
 <simpara>The projects that require middleware generally include a
 <literal>docker-compose.yml</literal>, so consider using
-<link xl:href="http://compose.docker.io/">Docker Compose</link> to run the middeware servers
+<link xl:href="https://compose.docker.io/">Docker Compose</link> to run the middeware servers
 in Docker containers.</simpara>
 </section>
 <section xml:id="_documentation">
@@ -1380,13 +1380,13 @@ in Docker containers.</simpara>
 <section xml:id="_working_with_the_code">
 <title>Working with the code</title>
 <simpara>If you don&#8217;t have an IDE preference we would recommend that you use
-<link xl:href="http://www.springsource.com/developer/sts">Spring Tools Suite</link> or
-<link xl:href="http://eclipse.org">Eclipse</link> when working with the code. We use the
-<link xl:href="http://eclipse.org/m2e/">m2eclipe</link> eclipse plugin for maven support. Other IDEs and tools
+<link xl:href="https://www.springsource.com/developer/sts">Spring Tools Suite</link> or
+<link xl:href="https://eclipse.org">Eclipse</link> when working with the code. We use the
+<link xl:href="https://eclipse.org/m2e/">m2eclipe</link> eclipse plugin for maven support. Other IDEs and tools
 should also work without issue.</simpara>
 <section xml:id="_importing_into_eclipse_with_m2eclipse">
 <title>Importing into eclipse with m2eclipse</title>
-<simpara>We recommend the <link xl:href="http://eclipse.org/m2e/">m2eclipe</link> eclipse plugin when working with
+<simpara>We recommend the <link xl:href="https://eclipse.org/m2e/">m2eclipe</link> eclipse plugin when working with
 eclipse. If you don&#8217;t already have m2eclipse installed it is available from the "eclipse
 marketplace".</simpara>
 <simpara>Unfortunately m2e does not yet support Maven 3.3, so once the projects
@@ -1439,7 +1439,7 @@ you can import formatter settings using the
 <literal>eclipse-code-formatter.xml</literal> file from the
 <link xl:href="https://github.com/spring-cloud/build/tree/master/eclipse-coding-conventions.xml">Spring
 Cloud Build</link> project. If using IntelliJ, you can use the
-<link xl:href="http://plugins.jetbrains.com/plugin/6546">Eclipse Code Formatter
+<link xl:href="https://plugins.jetbrains.com/plugin/6546">Eclipse Code Formatter
 Plugin</link> to import the same file.</simpara>
 </listitem>
 <listitem>
@@ -1466,7 +1466,7 @@ than cosmetic changes).</simpara>
 other target branch in the main project).</simpara>
 </listitem>
 <listitem>
-<simpara>When writing a commit message please follow <link xl:href="http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html">these conventions</link>,
+<simpara>When writing a commit message please follow <link xl:href="https://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html">these conventions</link>,
 if you are fixing an existing issue please add <literal>Fixes gh-XXXX</literal> at the end of the commit
 message (where XXXX is the issue number).</simpara>
 </listitem>
