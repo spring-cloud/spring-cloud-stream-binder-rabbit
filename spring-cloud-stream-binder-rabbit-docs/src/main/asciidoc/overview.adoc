@@ -72,7 +72,7 @@ please refer to the https://github.com/spring-cloud/spring-cloud-stream/blob/mas
 === RabbitMQ Binder Properties
 
 By default, the RabbitMQ binder uses Spring Boot's `ConnectionFactory`, and it therefore supports all Spring Boot configuration options for RabbitMQ.
-(For reference, consult the http://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#common-application-properties[Spring Boot documentation].)
+(For reference, consult the https://docs.spring.io/spring-boot/docs/current/reference/htmlsingle/#common-application-properties[Spring Boot documentation].)
 RabbitMQ configuration options use the `spring.rabbitmq` prefix.
 
 In addition to Spring Boot options, the RabbitMQ binder supports the following properties:
