@@ -34,7 +34,7 @@
 	color: #ffffff;
 }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/zepto/1.2.0/zepto.min.js"></script>
+<script src="http://cdnjs.cloudflare.com/ajax/libs/zepto/1.2.0/zepto.min.js"></script>
 <script type="text/javascript">
 function addBlockSwitches() {
 	$('.primary').each(function() {
@@ -105,24 +105,25 @@ $(addBlockSwitches);
 <li><a href="#_rabbit_producer_properties">3.4. Rabbit Producer Properties</a></li>
 </ul>
 </li>
-<li><a href="#_retry_with_the_rabbitmq_binder">4. Retry With the RabbitMQ Binder</a>
+<li><a href="#_using_existing_queuesexchanges">4. Using Existing Queues/Exchanges</a></li>
+<li><a href="#_retry_with_the_rabbitmq_binder">5. Retry With the RabbitMQ Binder</a>
 <ul class="sectlevel2">
-<li><a href="#_putting_it_all_together">4.1. Putting it All Together</a></li>
+<li><a href="#_putting_it_all_together">5.1. Putting it All Together</a></li>
 </ul>
 </li>
-<li><a href="#rabbit-error-channels">5. Error Channels</a></li>
-<li><a href="#rabbit-dlq-processing">6. Dead-Letter Queue Processing</a>
+<li><a href="#rabbit-error-channels">6. Error Channels</a></li>
+<li><a href="#rabbit-dlq-processing">7. Dead-Letter Queue Processing</a>
 <ul class="sectlevel2">
-<li><a href="#_non_partitioned_destinations">6.1. Non-Partitioned Destinations</a></li>
-<li><a href="#_partitioned_destinations">6.2. Partitioned Destinations</a>
+<li><a href="#_non_partitioned_destinations">7.1. Non-Partitioned Destinations</a></li>
+<li><a href="#_partitioned_destinations">7.2. Partitioned Destinations</a>
 <ul class="sectlevel3">
-<li><a href="#_republishtodlqfalse">6.2.1. <code>republishToDlq=false</code></a></li>
-<li><a href="#_republishtodlqtrue">6.2.2. <code>republishToDlq=true</code></a></li>
+<li><a href="#_republishtodlqfalse">7.2.1. <code>republishToDlq=false</code></a></li>
+<li><a href="#_republishtodlqtrue">7.2.2. <code>republishToDlq=true</code></a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li><a href="#_partitioning_with_the_rabbitmq_binder">7. Partitioning with the RabbitMQ Binder</a></li>
+<li><a href="#_partitioning_with_the_rabbitmq_binder">8. Partitioning with the RabbitMQ Binder</a></li>
 </ul>
 </li>
 <li><a href="#_appendices">Appendices</a>
@@ -348,6 +349,18 @@ The name is this prefix followed by <code>#n</code>, where <code>n</code> increm
 </div>
 <div class="sect2">
 <h3 id="_rabbitmq_consumer_properties"><a class="link" href="#_rabbitmq_consumer_properties">3.2. RabbitMQ Consumer Properties</a></h3>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+To avoid repetition, Spring Cloud Stream supports setting values for all channels, in the format of <code>spring.cloud.stream.default.&lt;property&gt;=&lt;value&gt;</code>.
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>The following properties are available for Rabbit consumers only and must be prefixed with <code>spring.cloud.stream.rabbit.bindings.&lt;channelName&gt;.consumer.</code>.</p>
 </div>
@@ -750,6 +763,18 @@ The customizer (<code>configure()</code> method) is provided with the queue name
 </div>
 <div class="sect2">
 <h3 id="_rabbit_producer_properties"><a class="link" href="#_rabbit_producer_properties">3.4. Rabbit Producer Properties</a></h3>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+To avoid repetition, Spring Cloud Stream supports setting values for all channels, in the format of <code>spring.cloud.stream.default.&lt;property&gt;=&lt;value&gt;</code>.
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>The following properties are available for Rabbit producers only and
 must be prefixed with <code>spring.cloud.stream.rabbit.bindings.&lt;channelName&gt;.producer.</code>.</p>
@@ -1095,7 +1120,65 @@ Spring Cloud Stream supports them as part of an extended internal protocol used 
 </div>
 </div>
 <div class="sect1">
-<h2 id="_retry_with_the_rabbitmq_binder"><a class="link" href="#_retry_with_the_rabbitmq_binder">4. Retry With the RabbitMQ Binder</a></h2>
+<h2 id="_using_existing_queuesexchanges"><a class="link" href="#_using_existing_queuesexchanges">4. Using Existing Queues/Exchanges</a></h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>By default, the binder will automatically provision a topic exchange with the name being derived from the value of the destination binding property <code>&lt;prefix&gt;&lt;destination&gt;</code>.
+The destination defaults to the binding name, if not provided.
+When binding a consumer, a queue will automatically be provisioned with the name <code>&lt;prefix&gt;&lt;destination&gt;.&lt;group&gt;</code> (if a <code>group</code> binding property is specified), or an anonymous, auto-delete queue when there is no <code>group</code>.
+The queue will be bound to the exchange with the "match-all" wildcard routing key (<code>#</code>) for a non-partitioned binding or <code>&lt;destination&gt;-&lt;instanceIndex&gt;</code> for a partitioned binding.
+The prefix is an empty <code>String</code> by default.
+If an output binding is specified with <code>requiredGroups</code>, a queue/binding will be provisioned for each group.</p>
+</div>
+<div class="paragraph">
+<p>There are a number of rabbit-specific binding properties that allow you to modify this default behavior.</p>
+</div>
+<div class="paragraph">
+<p>If you have an existing exchange/queue that you wish to use, you can completely disable automatic provisioning as follows, assuming the exchange is named <code>myExchange</code> and the queue is named <code>myQueue</code>:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>spring.cloud.stream.binding.&lt;binding name&gt;.destination=myExhange</code></p>
+</li>
+<li>
+<p><code>spring.cloud.stream.binding.&lt;binding name&gt;.group=myQueue</code></p>
+</li>
+<li>
+<p><code>spring.cloud.stream.rabbit.bindings.&lt;binding name&gt;.consumer.bindQueue=false</code></p>
+</li>
+<li>
+<p><code>spring.cloud.stream.rabbit.bindings.&lt;binding name&gt;.consumer.declareExchange=false</code></p>
+</li>
+<li>
+<p><code>spring.cloud.stream.rabbit.bindings.&lt;binding name&gt;.consumer.queueNameGroupOnly=true</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If you want the binder to provision the queue/exchange, but you want to do it using something other than the defaults discussed here, use the following properties.
+Refer to the property documentation above for more information.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>spring.cloud.stream.rabbit.bindings.&lt;binding name&gt;.consumer.bindingRoutingKey=myRoutingKey</code></p>
+</li>
+<li>
+<p><code>spring.cloud.stream.rabbit.bindings.&lt;binding name&gt;.consumer.exchangeType=&lt;type&gt;</code></p>
+</li>
+<li>
+<p><code>spring.cloud.stream.rabbit.bindings.&lt;binding name&gt;.producer.routingKeyExpression='myRoutingKey'</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>There are similar properties used when declaring a dead-letter exchange/queue, when <code>autoBindDlq</code> is <code>true</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_retry_with_the_rabbitmq_binder"><a class="link" href="#_retry_with_the_rabbitmq_binder">5. Retry With the RabbitMQ Binder</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>When retry is enabled within the binder, the listener container thread is suspended for any back off periods that are configured.
@@ -1132,7 +1215,7 @@ Fortunately, RabbitMQ provides the <code>x-death</code> header, which lets you d
 <p>To acknowledge a message after giving up, throw an <code>ImmediateAcknowledgeAmqpException</code>.</p>
 </div>
 <div class="sect2">
-<h3 id="_putting_it_all_together"><a class="link" href="#_putting_it_all_together">4.1. Putting it All Together</a></h3>
+<h3 id="_putting_it_all_together"><a class="link" href="#_putting_it_all_together">5.1. Putting it All Together</a></h3>
 <div class="paragraph">
 <p>The following configuration creates an exchange <code>myDestination</code> with queue <code>myDestination.consumerGroup</code> bound to a topic exchange with a wildcard routing key <code>#</code>:</p>
 </div>
@@ -1185,7 +1268,7 @@ public class XDeathApplication {
 </div>
 </div>
 <div class="sect1">
-<h2 id="rabbit-error-channels"><a class="link" href="#rabbit-error-channels">5. Error Channels</a></h2>
+<h2 id="rabbit-error-channels"><a class="link" href="#rabbit-error-channels">6. Error Channels</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>Starting with version 1.3, the binder unconditionally sends exceptions to an error channel for each consumer destination and can also be configured to send async producer send failures to an error channel.
@@ -1279,7 +1362,7 @@ You can consume these exceptions with your own Spring Integration flow.</p>
 </div>
 </div>
 <div class="sect1">
-<h2 id="rabbit-dlq-processing"><a class="link" href="#rabbit-dlq-processing">6. Dead-Letter Queue Processing</a></h2>
+<h2 id="rabbit-dlq-processing"><a class="link" href="#rabbit-dlq-processing">7. Dead-Letter Queue Processing</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>Because you cannot anticipate how users would want to dispose of dead-lettered messages, the framework does not provide any standard mechanism to handle them.
@@ -1295,7 +1378,7 @@ You could also use <code>RabbitTemplate.receive()</code> in a batch process.</p>
 <p>The examples assume the original destination is <code>so8400in</code> and the consumer group is <code>so8400</code>.</p>
 </div>
 <div class="sect2">
-<h3 id="_non_partitioned_destinations"><a class="link" href="#_non_partitioned_destinations">6.1. Non-Partitioned Destinations</a></h3>
+<h3 id="_non_partitioned_destinations"><a class="link" href="#_non_partitioned_destinations">7.1. Non-Partitioned Destinations</a></h3>
 <div class="paragraph">
 <p>The first two examples are for when the destination is <strong>not</strong> partitioned:</p>
 </div>
@@ -1409,12 +1492,12 @@ public class ReRouteDlqApplication {
 </div>
 </div>
 <div class="sect2">
-<h3 id="_partitioned_destinations"><a class="link" href="#_partitioned_destinations">6.2. Partitioned Destinations</a></h3>
+<h3 id="_partitioned_destinations"><a class="link" href="#_partitioned_destinations">7.2. Partitioned Destinations</a></h3>
 <div class="paragraph">
 <p>With partitioned destinations, there is one DLQ for all partitions. We determine the original queue from the headers.</p>
 </div>
 <div class="sect3">
-<h4 id="_republishtodlqfalse"><a class="link" href="#_republishtodlqfalse">6.2.1. <code>republishToDlq=false</code></a></h4>
+<h4 id="_republishtodlqfalse"><a class="link" href="#_republishtodlqfalse">7.2.1. <code>republishToDlq=false</code></a></h4>
 <div class="paragraph">
 <p>When <code>republishToDlq</code> is <code>false</code>, RabbitMQ publishes the message to the DLX/DLQ with an <code>x-death</code> header containing information about the original destination, as shown in the following example:</p>
 </div>
@@ -1473,7 +1556,7 @@ public class ReRouteDlqApplication {
 </div>
 </div>
 <div class="sect3">
-<h4 id="_republishtodlqtrue"><a class="link" href="#_republishtodlqtrue">6.2.2. <code>republishToDlq=true</code></a></h4>
+<h4 id="_republishtodlqtrue"><a class="link" href="#_republishtodlqtrue">7.2.2. <code>republishToDlq=true</code></a></h4>
 <div class="paragraph">
 <p>When <code>republishToDlq</code> is <code>true</code>, the republishing recoverer adds the original exchange and routing key to headers, as shown in the following example:</p>
 </div>
@@ -1535,7 +1618,7 @@ public class ReRouteDlqApplication {
 </div>
 </div>
 <div class="sect1">
-<h2 id="_partitioning_with_the_rabbitmq_binder"><a class="link" href="#_partitioning_with_the_rabbitmq_binder">7. Partitioning with the RabbitMQ Binder</a></h2>
+<h2 id="_partitioning_with_the_rabbitmq_binder"><a class="link" href="#_partitioning_with_the_rabbitmq_binder">8. Partitioning with the RabbitMQ Binder</a></h2>
 <div class="sectionbody">
 <div class="paragraph">
 <p>RabbitMQ does not support partitioning natively.</p>
