@@ -64,9 +64,6 @@ public class RabbitExchangeQueueProvisioner implements ApplicationListener<Decla
 		ProvisioningProvider<ExtendedConsumerProperties<RabbitConsumerProperties>,
 							ExtendedProducerProperties<RabbitProducerProperties>> {
 
-	private static final Base64UrlNamingStrategy ANONYMOUS_GROUP_NAME_GENERATOR
-			= new Base64UrlNamingStrategy("anonymous.");
-
 	/**
 	 * The delimiter between a group and index when constructing a binder
 	 * consumer/producer.
@@ -147,13 +144,24 @@ public class RabbitExchangeQueueProvisioner implements ApplicationListener<Decla
 
 	private ConsumerDestination doProvisionConsumerDestination(String name, String group,
 			ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
+
 		boolean anonymous = !StringUtils.hasText(group);
-		String  baseQueueName;
+
+		Base64UrlNamingStrategy anonQueueNameGenerator =  null;
+		if (anonymous) {
+			anonQueueNameGenerator = new Base64UrlNamingStrategy(
+					properties.getExtension().getAnonymousGroupPrefix() == null
+						? ""
+						: properties.getExtension().getAnonymousGroupPrefix());
+		}
+		String baseQueueName;
 		if (properties.getExtension().isQueueNameGroupOnly()) {
-				baseQueueName =  anonymous ? ANONYMOUS_GROUP_NAME_GENERATOR.generateName() : group;
+			baseQueueName = anonymous ? anonQueueNameGenerator.generateName()
+					: group;
 		}
 		else {
-				baseQueueName = groupedName(name, anonymous ? ANONYMOUS_GROUP_NAME_GENERATOR.generateName() : group);
+			baseQueueName = groupedName(name,
+					anonymous ? anonQueueNameGenerator.generateName() : group);
 		}
 		if (this.logger.isInfoEnabled()) {
 			this.logger.info("declaring queue for inbound: " + baseQueueName + ", bound to: " + name);
