@@ -78,7 +78,6 @@ import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.integration.IntegrationMessageHeaderAccessor;
 import org.springframework.integration.StaticMessageHeaderAccessor;
 import org.springframework.integration.acks.AcknowledgmentCallback;
 import org.springframework.integration.acks.AcknowledgmentCallback.Status;
@@ -612,8 +611,7 @@ public class RabbitMessageChannelBinder extends
 				public void handleMessage(
 						org.springframework.messaging.Message<?> message)
 						throws MessagingException {
-					Message amqpMessage = (Message) message.getHeaders()
-								.get(IntegrationMessageHeaderAccessor.SOURCE_DATA);
+					Message amqpMessage = StaticMessageHeaderAccessor.getSourceData(message);
 
 					if (!(message instanceof ErrorMessage)) {
 						logger.error("Expected an ErrorMessage, not a "
@@ -699,8 +697,7 @@ public class RabbitMessageChannelBinder extends
 				public void handleMessage(
 						org.springframework.messaging.Message<?> message)
 						throws MessagingException {
-					Message amqpMessage = (Message) message.getHeaders()
-								.get(IntegrationMessageHeaderAccessor.SOURCE_DATA);
+					Message amqpMessage = StaticMessageHeaderAccessor.getSourceData(message);
 					/*
 					 * NOTE: The following IF and subsequent ELSE IF should never happen
 					 * under normal interaction and it should always go to the last ELSE
