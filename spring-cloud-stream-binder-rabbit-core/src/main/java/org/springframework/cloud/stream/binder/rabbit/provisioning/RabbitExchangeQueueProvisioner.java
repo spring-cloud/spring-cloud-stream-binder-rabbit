@@ -341,7 +341,7 @@ public class RabbitExchangeQueueProvisioner
 										.build());
 			}
 			Binding dlqBinding = new Binding(dlq.getName(), DestinationType.QUEUE,
-					dlxName, properties.getDlqDeadLetterRoutingKey() == null ? routingKey
+					dlxName, properties.getDeadLetterRoutingKey() == null ? routingKey
 							: properties.getDeadLetterRoutingKey(),
 					null);
 			declareBinding(dlqName, dlqBinding);
