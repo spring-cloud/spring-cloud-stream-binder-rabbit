@@ -168,7 +168,6 @@ public class RabbitExchangeQueueProvisioner
 	public ConsumerDestination provisionConsumerDestination(String name, String group,
 			ExtendedConsumerProperties<RabbitConsumerProperties> properties) {
 		ConsumerDestination consumerDestination;
-		System.out.println();
 		if (!properties.isMultiplex()) {
 			consumerDestination = doProvisionConsumerDestination(name, group, properties);
 		}
