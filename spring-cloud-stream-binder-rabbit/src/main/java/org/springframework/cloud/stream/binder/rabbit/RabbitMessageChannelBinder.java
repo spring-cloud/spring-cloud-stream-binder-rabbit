@@ -861,7 +861,8 @@ public class RabbitMessageChannelBinder extends
 		if (properties.getBatchingStrategyBeanName() != null) {
 			batchingStrategy = getApplicationContext()
 					.getBean(properties.getBatchingStrategyBeanName(), BatchingStrategy.class);
-		} else {
+		}
+		else {
 			batchingStrategy = new SimpleBatchingStrategy(
 					properties.getBatchSize(),
 					properties.getBatchBufferLimit(),

@@ -27,7 +27,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -2286,7 +2285,8 @@ public class RabbitBinderTests extends
 		private MessageBatch doReleaseBatch() {
 			if (this.messages.size() < 1) {
 				return null;
-			} else {
+			}
+			else {
 				ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[this.currentSize]);
 				for (org.springframework.amqp.core.Message message: messages) {
 					byteBuffer.put(message.getBody()).putChar('\n');
