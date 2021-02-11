@@ -7,7 +7,7 @@
 	<parent>
 		<groupId>org.springframework.cloud</groupId>
 		<artifactId>spring-cloud-stream-binder-rabbit-parent</artifactId>
-		<version>3.0.12.SNAPSHOT</version>
+		<version>3.0.12.BUILD-SNAPSHOT</version>
 	</parent>
 	<packaging>pom</packaging>
 	<name>spring-cloud-stream-binder-rabbit-docs</name>
@@ -16,7 +16,7 @@
 		<docs.main>spring-cloud-stream-binder-rabbit</docs.main>
 		<main.basedir>${basedir}/..</main.basedir>
 		<maven.plugin.plugin.version>3.4</maven.plugin.plugin.version>
-		<upload-docs-zip.phase>deploy</upload-docs-zip.phase> 
+		<upload-docs-zip.phase>deploy</upload-docs-zip.phase>
 	</properties>
 	<build>
 		<plugins>
@@ -45,13 +45,13 @@
 					</plugin>
 					<plugin>
 	                    <groupId>org.codehaus.mojo</groupId>
-	                    <artifactId>exec-maven-plugin</artifactId> 
+	                    <artifactId>exec-maven-plugin</artifactId>
 	                </plugin>
 					<plugin>
 						<groupId>org.asciidoctor</groupId>
 						<artifactId>asciidoctor-maven-plugin</artifactId>
 					</plugin>
-					
+
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-antrun-plugin</artifactId>
