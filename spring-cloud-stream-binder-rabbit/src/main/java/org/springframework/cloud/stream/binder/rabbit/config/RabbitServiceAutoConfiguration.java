@@ -23,7 +23,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.amqp.RabbitHealthIndicator;
 import org.springframework.boot.actuate.health.HealthIndicator;
-import org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration;
+import org.springframework.boot.autoconfigure.amqp.RabbitConfiguration;
 import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -54,6 +54,7 @@ import org.springframework.util.StringUtils;
  * @author Ilayaperumal Gopinathan
  * @author Artem Bilan
  * @author Gary Russell
+ * @author Chris Bono
  */
 @Configuration
 @ConditionalOnMissingBean(Binder.class)
@@ -172,7 +173,7 @@ public abstract class RabbitServiceAutoConfiguration {
 			 */
 			@Configuration
 			@ConditionalOnProperty("spring.cloud.stream.override-cloud-connectors")
-			@Import(RabbitAutoConfiguration.class)
+			@Import(RabbitConfiguration.class)
 			protected static class OverrideCloudConnectors {
 
 			}
@@ -181,7 +182,7 @@ public abstract class RabbitServiceAutoConfiguration {
 
 		@Configuration
 		@ConditionalOnMissingClass("org.springframework.cloud.Cloud")
-		@Import(RabbitAutoConfiguration.class)
+		@Import(RabbitConfiguration.class)
 		protected static class NoCloudConnectors {
 
 		}
@@ -194,7 +195,7 @@ public abstract class RabbitServiceAutoConfiguration {
 	 */
 	@Configuration
 	@Profile("!cloud")
-	@Import(RabbitAutoConfiguration.class)
+	@Import(RabbitConfiguration.class)
 	protected static class NoCloudProfile {
 
 	}
