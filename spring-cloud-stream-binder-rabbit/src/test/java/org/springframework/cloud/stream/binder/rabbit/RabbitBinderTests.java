@@ -44,9 +44,9 @@ import com.rabbitmq.http.client.domain.BindingInfo;
 import com.rabbitmq.http.client.domain.ExchangeInfo;
 import com.rabbitmq.http.client.domain.QueueInfo;
 import org.apache.commons.logging.Log;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestName;
 import org.mockito.ArgumentCaptor;
 
 import org.springframework.amqp.AmqpIOException;
@@ -160,9 +160,11 @@ public class RabbitBinderTests extends
 
 	private int maxStackTraceSize;
 
+	@Rule
+	public RabbitTestSupport rabbitAvailableRule = new RabbitTestSupport(true);
 
-	@RegisterExtension
-	RabbitTestSupport rabbitAvailableRule = new RabbitTestSupport(true);
+	@Rule
+	public TestName testName = new TestName();
 
 	@Override
 	protected RabbitTestBinder getBinder() {
@@ -179,11 +181,10 @@ public class RabbitBinderTests extends
 	}
 
 	@Override
-	protected ExtendedProducerProperties<RabbitProducerProperties> createProducerProperties(TestInfo testInfo) {
+	protected ExtendedProducerProperties<RabbitProducerProperties> createProducerProperties() {
 		ExtendedProducerProperties<RabbitProducerProperties> props = new ExtendedProducerProperties<>(
 				new RabbitProducerProperties());
-
-		if (testInfo.getTestMethod().get().getName().equals("testPartitionedModuleSpEL")) {
+		if (testName.getMethodName().equals("testPartitionedModuleSpEL")) {
 			props.getExtension().setRoutingKeyExpression(
 					spelExpressionParser.parseExpression("'part.0'"));
 		}
@@ -196,7 +197,7 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testSendAndReceiveBad(TestInfo testInfo) throws Exception {
+	public void testSendAndReceiveBad() throws Exception {
 		RabbitTestBinder binder = getBinder();
 		final AtomicReference<AsyncConsumerStartedEvent> event = new AtomicReference<>();
 		binder.getApplicationContext().addApplicationListener(
@@ -206,7 +207,7 @@ public class RabbitBinderTests extends
 		DirectChannel moduleInputChannel = createBindableChannel("input",
 				new BindingProperties());
 		Binding<MessageChannel> producerBinding = binder.bindProducer("bad.0",
-				moduleOutputChannel, createProducerProperties(testInfo));
+				moduleOutputChannel, createProducerProperties());
 		assertThat(TestUtils.getPropertyValue(producerBinding,
 				"lifecycle.headersMappedLast", Boolean.class)).isTrue();
 		assertThat(
@@ -243,7 +244,7 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testProducerErrorChannel(TestInfo testInfo) throws Exception {
+	public void testProducerErrorChannel() throws Exception {
 		RabbitTestBinder binder = getBinder();
 		CachingConnectionFactory ccf = this.rabbitAvailableRule.getResource();
 		ccf.setPublisherReturns(true);
@@ -251,7 +252,7 @@ public class RabbitBinderTests extends
 		ccf.resetConnection();
 		DirectChannel moduleOutputChannel = createBindableChannel("output",
 				new BindingProperties());
-		ExtendedProducerProperties<RabbitProducerProperties> producerProps = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProps = createProducerProperties();
 		producerProps.setErrorChannelEnabled(true);
 		Binding<MessageChannel> producerBinding = binder.bindProducer("ec.0",
 				moduleOutputChannel, producerProps);
@@ -324,7 +325,7 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testProducerAckChannel(TestInfo testInfo) throws Exception {
+	public void testProducerAckChannel() throws Exception {
 		RabbitTestBinder binder = getBinder();
 		CachingConnectionFactory ccf = this.rabbitAvailableRule.getResource();
 		ccf.setPublisherReturns(true);
@@ -332,7 +333,7 @@ public class RabbitBinderTests extends
 		ccf.resetConnection();
 		DirectChannel moduleOutputChannel = createBindableChannel("output",
 				new BindingProperties());
-		ExtendedProducerProperties<RabbitProducerProperties> producerProps = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProps = createProducerProperties();
 		producerProps.setErrorChannelEnabled(true);
 		producerProps.getExtension().setConfirmAckChannel("acksChannel");
 		Binding<MessageChannel> producerBinding = binder.bindProducer("acks.0",
@@ -353,7 +354,7 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testProducerConfirmHeader(TestInfo testInfo) throws Exception {
+	public void testProducerConfirmHeader() throws Exception {
 		RabbitTestBinder binder = getBinder();
 		CachingConnectionFactory ccf = this.rabbitAvailableRule.getResource();
 		ccf.setPublisherReturns(true);
@@ -361,7 +362,7 @@ public class RabbitBinderTests extends
 		ccf.resetConnection();
 		DirectChannel moduleOutputChannel = createBindableChannel("output",
 				new BindingProperties());
-		ExtendedProducerProperties<RabbitProducerProperties> producerProps = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProps = createProducerProperties();
 		producerProps.getExtension().setUseConfirmHeader(true);
 		Binding<MessageChannel> producerBinding = binder.bindProducer("confirms.0",
 				moduleOutputChannel, producerProps);
@@ -790,11 +791,11 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testProducerProperties(TestInfo testInfo) throws Exception {
+	public void testProducerProperties() throws Exception {
 		RabbitTestBinder binder = getBinder();
 		Binding<MessageChannel> producerBinding = binder.bindProducer("props.0",
 				createBindableChannel("input", new BindingProperties()),
-				createProducerProperties(testInfo));
+				createProducerProperties());
 		Lifecycle endpoint = extractEndpoint(producerBinding);
 		MessageDeliveryMode mode = TestUtils.getPropertyValue(endpoint,
 				"defaultDeliveryMode", MessageDeliveryMode.class);
@@ -807,7 +808,7 @@ public class RabbitBinderTests extends
 		assertThat(TestUtils.getPropertyValue(endpoint, "amqpTemplate.transactional",
 				Boolean.class)).isFalse();
 
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		this.applicationContext.registerBean("pkExtractor",
 				TestPartitionKeyExtractorClass.class, () -> new TestPartitionKeyExtractorClass());
 		this.applicationContext.registerBean("pkSelector",
@@ -1089,7 +1090,7 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testAutoBindDLQPartionedConsumerFirst(TestInfo testInfo) throws Exception {
+	public void testAutoBindDLQPartionedConsumerFirst() throws Exception {
 		RabbitTestBinder binder = getBinder();
 		ExtendedConsumerProperties<RabbitConsumerProperties> properties = createConsumerProperties();
 		properties.getExtension().setPrefix("bindertest.");
@@ -1113,7 +1114,7 @@ public class RabbitBinderTests extends
 		Binding<MessageChannel> defaultConsumerBinding2 = binder.bindConsumer("partDLQ.0",
 				"default", new QueueChannel(), properties);
 
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setPrefix("bindertest.");
 		this.applicationContext.registerBean("pkExtractor", PartitionTestSupport.class, () -> new PartitionTestSupport());
 		this.applicationContext.registerBean("pkSelector", PartitionTestSupport.class, () -> new PartitionTestSupport());
@@ -1191,19 +1192,19 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testAutoBindDLQPartitionedConsumerFirstWithRepublishNoRetry(TestInfo testInfo)
+	public void testAutoBindDLQPartitionedConsumerFirstWithRepublishNoRetry()
 			throws Exception {
-		testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(false, testInfo);
+		testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(false);
 	}
 
 	@Test
-	public void testAutoBindDLQPartitionedConsumerFirstWithRepublishWithRetry(TestInfo testInfo)
+	public void testAutoBindDLQPartitionedConsumerFirstWithRepublishWithRetry()
 			throws Exception {
-		testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(true, testInfo);
+		testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(true);
 	}
 
 	private void testAutoBindDLQPartionedConsumerFirstWithRepublishGuts(
-			final boolean withRetry, TestInfo testInfo) throws Exception {
+			final boolean withRetry) throws Exception {
 		RabbitTestBinder binder = getBinder();
 		ExtendedConsumerProperties<RabbitConsumerProperties> properties = createConsumerProperties();
 		properties.getExtension().setPrefix("bindertest.");
@@ -1230,7 +1231,7 @@ public class RabbitBinderTests extends
 		Binding<MessageChannel> defaultConsumerBinding2 = binder
 				.bindConsumer("partPubDLQ.0", "default", new QueueChannel(), properties);
 
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setPrefix("bindertest.");
 		producerProperties.getExtension().setAutoBindDlq(true);
 		this.applicationContext.registerBean("pkExtractor", PartitionTestSupport.class, () -> new PartitionTestSupport());
@@ -1348,9 +1349,9 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testAutoBindDLQPartitionedProducerFirst(TestInfo testInfo) throws Exception {
+	public void testAutoBindDLQPartitionedProducerFirst() throws Exception {
 		RabbitTestBinder binder = getBinder();
-		ExtendedProducerProperties<RabbitProducerProperties> properties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> properties = createProducerProperties();
 
 		properties.getExtension().setPrefix("bindertest.");
 		properties.getExtension().setAutoBindDlq(true);
@@ -1663,9 +1664,9 @@ public class RabbitBinderTests extends
 
 	@SuppressWarnings("unchecked")
 	@Test
-	public void testBatchingAndCompression(TestInfo testInfo) throws Exception {
+	public void testBatchingAndCompression() throws Exception {
 		RabbitTestBinder binder = getBinder();
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension()
 				.setDeliveryMode(MessageDeliveryMode.NON_PERSISTENT);
 		producerProperties.getExtension().setBatchingEnabled(true);
@@ -1725,9 +1726,9 @@ public class RabbitBinderTests extends
 
 	@SuppressWarnings("unchecked")
 	@Test
-	public void testProducerBatching(TestInfo testInfo) throws Exception {
+	public void testProducerBatching() throws Exception {
 		RabbitTestBinder binder = getBinder();
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension()
 				.setDeliveryMode(MessageDeliveryMode.NON_PERSISTENT);
 		producerProperties.getExtension().setBatchingEnabled(true);
@@ -1767,9 +1768,9 @@ public class RabbitBinderTests extends
 
 	@SuppressWarnings("unchecked")
 	@Test
-	public void testConsumerBatching(TestInfo testInfo) throws Exception {
+	public void testConsumerBatching() throws Exception {
 		RabbitTestBinder binder = getBinder();
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension()
 				.setDeliveryMode(MessageDeliveryMode.NON_PERSISTENT);
 
@@ -1805,9 +1806,9 @@ public class RabbitBinderTests extends
 
 	@SuppressWarnings("unchecked")
 	@Test
-	public void testInternalHeadersNotPropagated(TestInfo testInfo) throws Exception {
+	public void testInternalHeadersNotPropagated() throws Exception {
 		RabbitTestBinder binder = getBinder();
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension()
 				.setDeliveryMode(MessageDeliveryMode.NON_PERSISTENT);
 
@@ -1847,7 +1848,7 @@ public class RabbitBinderTests extends
 	 * queues.
 	 */
 	@Test
-	public void testLateBinding(TestInfo testInfo) throws Exception {
+	public void testLateBinding() throws Exception {
 		RabbitTestSupport.RabbitProxy proxy = new RabbitTestSupport.RabbitProxy();
 		CachingConnectionFactory cf = new CachingConnectionFactory("localhost",
 				proxy.getPort());
@@ -1856,7 +1857,7 @@ public class RabbitBinderTests extends
 				new RabbitProperties(), new RabbitExchangeQueueProvisioner(cf));
 		RabbitTestBinder binder = new RabbitTestBinder(cf, rabbitBinder);
 
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setPrefix("latebinder.");
 		producerProperties.getExtension().setAutoBindDlq(true);
 		producerProperties.getExtension().setTransacted(true);
@@ -1896,7 +1897,7 @@ public class RabbitBinderTests extends
 		Binding<MessageChannel> partlate0Consumer1Binding = binder.bindConsumer(
 				"partlate.0", "test", partInputChannel1, partLateConsumerProperties);
 
-		ExtendedProducerProperties<RabbitProducerProperties> noDlqProducerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> noDlqProducerProperties = createProducerProperties();
 		noDlqProducerProperties.getExtension().setPrefix("latebinder.");
 		MessageChannel noDLQOutputChannel = createBindableChannel("output",
 				createProducerBindingProperties(noDlqProducerProperties));
@@ -2020,9 +2021,9 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testRoutingKeyExpression(TestInfo testInfo) throws Exception {
+	public void testRoutingKeyExpression() throws Exception {
 		RabbitTestBinder binder = getBinder();
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setRoutingKeyExpression(
 				spelExpressionParser.parseExpression("payload.field"));
 
@@ -2063,9 +2064,9 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testRoutingKeyExpressionPartitionedAndDelay(TestInfo testInfo) throws Exception {
+	public void testRoutingKeyExpressionPartitionedAndDelay() throws Exception {
 		RabbitTestBinder binder = getBinder();
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setRoutingKeyExpression(
 				spelExpressionParser.parseExpression("#root.getPayload().field"));
 		// requires delayed message exchange plugin; tested locally
@@ -2264,9 +2265,9 @@ public class RabbitBinderTests extends
 	}
 
 	@Test
-	public void testCustomBatchingStrategy(TestInfo testInfo) throws Exception {
+	public void testCustomBatchingStrategy() throws Exception {
 		RabbitTestBinder binder = getBinder();
-		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties(testInfo);
+		ExtendedProducerProperties<RabbitProducerProperties> producerProperties = createProducerProperties();
 		producerProperties.getExtension().setDeliveryMode(MessageDeliveryMode.NON_PERSISTENT);
 		producerProperties.getExtension().setBatchingEnabled(true);
 		producerProperties.getExtension().setBatchingStrategyBeanName("testCustomBatchingStrategy");
