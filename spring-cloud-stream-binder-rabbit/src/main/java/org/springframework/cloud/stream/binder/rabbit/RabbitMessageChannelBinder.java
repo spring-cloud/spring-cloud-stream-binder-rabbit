@@ -19,6 +19,7 @@ package org.springframework.cloud.stream.binder.rabbit;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -52,6 +53,7 @@ import org.springframework.amqp.rabbit.core.BatchingRabbitTemplate;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.AbstractMessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.DirectMessageListenerContainer;
+import org.springframework.amqp.rabbit.listener.MessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.rabbit.retry.RepublishMessageRecoverer;
@@ -514,8 +516,8 @@ public class RabbitMessageChannelBinder extends
 		}
 		listenerContainer.afterPropertiesSet();
 
-		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(
-				listenerContainer);
+		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(listenerContainer);
+				//this.createAdapterInstance(listenerContainer);
 		adapter.setBindSourceMessage(true);
 		adapter.setBeanFactory(this.getBeanFactory());
 		adapter.setBeanName("inbound." + destination);
@@ -538,6 +540,27 @@ public class RabbitMessageChannelBinder extends
 			adapter.setBatchMode(BatchMode.EXTRACT_PAYLOADS_WITH_HEADERS);
 		}
 		return adapter;
+	}
+
+	private AmqpInboundChannelAdapter createAdapterInstance(MessageListenerContainer listenerContainer) {
+		Constructor<AmqpInboundChannelAdapter> declaredConstructor;
+		try {
+			declaredConstructor = AmqpInboundChannelAdapter.class.getDeclaredConstructor(MessageListenerContainer.class);
+
+			return declaredConstructor.newInstance(listenerContainer);
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			logger.debug("Using older version of Spring-AMQP by creaating AmqpInboundChannelAdapter with AbstractMessageListenerContainer");
+			//ignore
+		}
+		try {
+			declaredConstructor = AmqpInboundChannelAdapter.class.getDeclaredConstructor(AbstractMessageListenerContainer.class);
+			return declaredConstructor.newInstance(listenerContainer);
+		}
+		catch (Exception e) {
+			throw new IllegalStateException(e);
+		}
 	}
 
 	private void setSMLCProperties(
