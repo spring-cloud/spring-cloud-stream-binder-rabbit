@@ -517,7 +517,6 @@ public class RabbitMessageChannelBinder extends
 		listenerContainer.afterPropertiesSet();
 
 		AmqpInboundChannelAdapter adapter = new AmqpInboundChannelAdapter(listenerContainer);
-				//this.createAdapterInstance(listenerContainer);
 		adapter.setBindSourceMessage(true);
 		adapter.setBeanFactory(this.getBeanFactory());
 		adapter.setBeanName("inbound." + destination);
@@ -540,27 +539,6 @@ public class RabbitMessageChannelBinder extends
 			adapter.setBatchMode(BatchMode.EXTRACT_PAYLOADS_WITH_HEADERS);
 		}
 		return adapter;
-	}
-
-	private AmqpInboundChannelAdapter createAdapterInstance(MessageListenerContainer listenerContainer) {
-		Constructor<AmqpInboundChannelAdapter> declaredConstructor;
-		try {
-			declaredConstructor = AmqpInboundChannelAdapter.class.getDeclaredConstructor(MessageListenerContainer.class);
-
-			return declaredConstructor.newInstance(listenerContainer);
-		}
-		catch (Exception e) {
-			e.printStackTrace();
-			logger.debug("Using older version of Spring-AMQP by creaating AmqpInboundChannelAdapter with AbstractMessageListenerContainer");
-			//ignore
-		}
-		try {
-			declaredConstructor = AmqpInboundChannelAdapter.class.getDeclaredConstructor(AbstractMessageListenerContainer.class);
-			return declaredConstructor.newInstance(listenerContainer);
-		}
-		catch (Exception e) {
-			throw new IllegalStateException(e);
-		}
 	}
 
 	private void setSMLCProperties(
