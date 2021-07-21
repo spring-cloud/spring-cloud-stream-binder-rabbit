@@ -362,6 +362,7 @@ public class RabbitMessageChannelBinder extends
 		headerPatterns.add("!" + BinderHeaders.PARTITION_HEADER);
 		headerPatterns.add("!" + IntegrationMessageHeaderAccessor.SOURCE_DATA);
 		headerPatterns.add("!" + IntegrationMessageHeaderAccessor.DELIVERY_ATTEMPT);
+		headerPatterns.add("!rabbitmq_streamContext");
 		headerPatterns.addAll(Arrays.asList(extendedProperties.getHeaderPatterns()));
 		mapper.setRequestHeaderNames(
 				headerPatterns.toArray(new String[headerPatterns.size()]));
