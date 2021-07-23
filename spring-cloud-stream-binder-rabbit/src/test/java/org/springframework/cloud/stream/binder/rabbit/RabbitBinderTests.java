@@ -801,7 +801,7 @@ public class RabbitBinderTests extends
 		assertThat(mode).isEqualTo(MessageDeliveryMode.PERSISTENT);
 		List<?> requestHeaders = TestUtils.getPropertyValue(endpoint,
 				"headerMapper.requestHeaderMatcher.matchers", List.class);
-		assertThat(requestHeaders).hasSize(4);
+		assertThat(requestHeaders).hasSize(5);
 		producerBinding.unbind();
 		assertThat(endpoint.isRunning()).isFalse();
 		assertThat(TestUtils.getPropertyValue(endpoint, "amqpTemplate.transactional",
@@ -2340,8 +2340,8 @@ public class RabbitBinderTests extends
 	private void verifyFooRequestProducer(Lifecycle endpoint) {
 		List<?> requestMatchers = TestUtils.getPropertyValue(endpoint,
 				"headerMapper.requestHeaderMatcher.matchers", List.class);
-		assertThat(requestMatchers).hasSize(4);
-		assertThat(TestUtils.getPropertyValue(requestMatchers.get(3), "pattern"))
+		assertThat(requestMatchers).hasSize(5);
+		assertThat(TestUtils.getPropertyValue(requestMatchers.get(4), "pattern"))
 				.isEqualTo("foo");
 	}
 
