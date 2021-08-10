@@ -83,13 +83,14 @@ public final class StreamContainerUtils {
 			@Override
 			public synchronized void setConsumerCustomizer(ConsumerCustomizer consumerCustomizer) {
 				super.setConsumerCustomizer((id, builder) -> {
-					builder.name(consumerDestination.getName());
+					builder.name(consumerDestination.getName() + "." + group);
 					consumerCustomizer.accept(id, builder);
 				});
 			}
 
 
 		};
+		container.setBeanName(consumerDestination.getName() + "." + group + ".container");
 		container.setMessageConverter(new DefaultStreamMessageConverter());
 		return container;
 	}
