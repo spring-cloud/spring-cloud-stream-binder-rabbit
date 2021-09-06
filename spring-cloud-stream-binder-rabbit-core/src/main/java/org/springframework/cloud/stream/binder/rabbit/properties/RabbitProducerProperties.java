@@ -20,6 +20,7 @@ import jakarta.validation.constraints.Min;
 
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.expression.Expression;
+import org.springframework.expression.common.LiteralExpression;
 import org.springframework.util.Assert;
 
 /**
@@ -237,6 +238,10 @@ public class RabbitProducerProperties extends RabbitCommonProperties {
 
 	public void setRoutingKeyExpression(Expression routingKeyExpression) {
 		this.routingKeyExpression = routingKeyExpression;
+	}
+
+	public void setRoutingKey(String routingKey) {
+		setRoutingKeyExpression(new LiteralExpression(routingKey));
 	}
 
 	public String getConfirmAckChannel() {
