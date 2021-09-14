@@ -53,7 +53,7 @@ public class RabbitStreamMessageHandlerTests extends AbstractIntegrationTests {
 		env.streamCreator().stream("stream.stream").create();
 		RabbitStreamTemplate streamTemplate = new RabbitStreamTemplate(env, "stream.stream");
 		RabbitStreamMessageHandler handler = new RabbitStreamMessageHandler(streamTemplate);
-		handler.setWaitForConfirm(true);
+		handler.setSync(true);
 		handler.handleMessage(MessageBuilder.withPayload("foo")
 				.setHeader("bar", "baz")
 				.build());
@@ -87,7 +87,7 @@ public class RabbitStreamMessageHandlerTests extends AbstractIntegrationTests {
 		env.streamCreator().stream("stream.stream").create();
 		RabbitStreamTemplate streamTemplate = new RabbitStreamTemplate(env, "stream.stream");
 		RabbitStreamMessageHandler handler = new RabbitStreamMessageHandler(streamTemplate);
-		handler.setWaitForConfirm(true);
+		handler.setSync(true);
 		handler.handleMessage(MessageBuilder.withPayload(streamTemplate.messageBuilder()
 						.addData("foo".getBytes())
 						.applicationProperties().entry("bar", "baz")

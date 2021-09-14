@@ -54,7 +54,7 @@ public class RabbitStreamMessageHandler extends AbstractMessageHandler implement
 
 	private final RabbitStreamOperations streamOperations;
 
-	private boolean waitForConfirm;
+	private boolean sync;
 
 	private long confirmTimeout = DEFAULT_CONFIRM_TIMEOUT;
 
@@ -95,17 +95,17 @@ public class RabbitStreamMessageHandler extends AbstractMessageHandler implement
 
 	/**
 	 * Set to true to wait for a confirmation.
-	 * @param waitForConfirm true to wait.
+	 * @param sync true to wait.
 	 * @see #setConfirmTimeout(long)
 	 */
-	public void setWaitForConfirm(boolean waitForConfirm) {
-		this.waitForConfirm = waitForConfirm;
+	public void setSync(boolean sync) {
+		this.sync = sync;
 	}
 
 	/**
 	 * Set the confirm timeout.
 	 * @param confirmTimeout the timeout.
-	 * @see #setWaitForConfirm(boolean)
+	 * @see #setSync(boolean)
 	 */
 	public void setConfirmTimeout(long confirmTimeout) {
 		this.confirmTimeout = confirmTimeout;
@@ -166,7 +166,7 @@ public class RabbitStreamMessageHandler extends AbstractMessageHandler implement
 	private void handleConfirms(Message<?> message, ListenableFuture<Boolean> future) {
 		future.addCallback(bool -> this.successCallback.onSuccess(message),
 				ex -> this.failureCallback.failure(message, ex));
-		if (this.waitForConfirm) {
+		if (this.sync) {
 			try {
 				future.get(this.confirmTimeout, TimeUnit.MILLISECONDS);
 			}

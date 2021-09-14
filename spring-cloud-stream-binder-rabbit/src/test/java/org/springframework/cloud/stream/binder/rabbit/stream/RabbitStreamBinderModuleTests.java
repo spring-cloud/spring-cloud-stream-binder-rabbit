@@ -20,6 +20,7 @@ import com.rabbitmq.stream.ConsumerBuilder;
 import com.rabbitmq.stream.Environment;
 import com.rabbitmq.stream.OffsetSpecification;
 import com.rabbitmq.stream.ProducerBuilder;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 

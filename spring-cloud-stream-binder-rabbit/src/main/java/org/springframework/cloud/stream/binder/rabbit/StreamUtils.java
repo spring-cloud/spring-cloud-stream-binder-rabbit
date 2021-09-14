@@ -161,7 +161,7 @@ public final class StreamUtils {
 			});
 		}
 		handler.setHeaderMapper(headerMapperFunction.apply(extendedProperties));
-		handler.setWaitForConfirm(ProducerType.STREAM_SYNC.equals(producerProperties.getExtension().getProducerType()));
+		handler.setSync(ProducerType.STREAM_SYNC.equals(producerProperties.getExtension().getProducerType()));
 		return handler;
 	}
 

@@ -125,7 +125,8 @@ public class RabbitProducerProperties extends RabbitCommonProperties {
 	private boolean useConfirmHeader;
 
 	/**
-	 * When not NONE, create a RabbitMQ Stream producer instead of an AMQP producer.
+	 * When STREAM_SYNC or STREAM_ASYNC, create a RabbitMQ Stream producer instead of an
+	 * AMQP producer.
 	 * @since 3.2
 	 */
 	private ProducerType producerType = ProducerType.AMQP;
