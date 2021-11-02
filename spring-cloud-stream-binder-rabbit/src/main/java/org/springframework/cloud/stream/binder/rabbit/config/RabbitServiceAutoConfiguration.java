@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,12 +54,13 @@ import org.springframework.util.StringUtils;
  * @author Ilayaperumal Gopinathan
  * @author Artem Bilan
  * @author Gary Russell
+ * @author Soby Chacko
  */
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @ConditionalOnMissingBean(Binder.class)
 @Import({ RabbitMessageChannelBinderConfiguration.class,
 		RabbitServiceAutoConfiguration.RabbitHealthIndicatorConfiguration.class })
-public abstract class RabbitServiceAutoConfiguration {
+public class RabbitServiceAutoConfiguration {
 
 	static void configureCachingConnectionFactory(
 			CachingConnectionFactory connectionFactory,

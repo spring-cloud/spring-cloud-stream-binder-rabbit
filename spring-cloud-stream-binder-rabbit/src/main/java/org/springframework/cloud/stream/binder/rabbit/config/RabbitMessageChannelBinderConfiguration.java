@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2018 the original author or authors.
+ * Copyright 2015-2021 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,8 +56,9 @@ import org.springframework.lang.Nullable;
  * @author Artem Bilan
  * @author Oleg Zhurakousky
  * @author Gary Russell
+ * @author Soby Chacko
  */
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @Import({ PropertyPlaceholderAutoConfiguration.class })
 @EnableConfigurationProperties({ RabbitBinderConfigurationProperties.class,
 		RabbitExtendedBindingProperties.class })
@@ -82,7 +83,8 @@ public class RabbitMessageChannelBinderConfiguration {
 			@Nullable ProducerMessageHandlerCustomizer<AmqpOutboundEndpoint> producerMessageHandlerCustomizer,
 			@Nullable ConsumerEndpointCustomizer<AmqpInboundChannelAdapter> consumerCustomizer,
 			List<DeclarableCustomizer> declarableCustomizers,
-			@Nullable ConnectionNameStrategy connectionNameStrategy) {
+			@Nullable ConnectionNameStrategy connectionNameStrategy, MessagePostProcessor gZipPostProcessor,
+			MessagePostProcessor deCompressingPostProcessor, RabbitExchangeQueueProvisioner provisioningProvider) {
 
 		String connectionNamePrefix = this.rabbitBinderConfigurationProperties.getConnectionNamePrefix();
 		if (this.rabbitConnectionFactory instanceof AbstractConnectionFactory && connectionNamePrefix != null &&  connectionNameStrategy == null) {
@@ -92,11 +94,11 @@ public class RabbitMessageChannelBinderConfiguration {
 		}
 		RabbitMessageChannelBinder binder = new RabbitMessageChannelBinder(
 				this.rabbitConnectionFactory, this.rabbitProperties,
-				provisioningProvider(declarableCustomizers), listenerContainerCustomizer, sourceCustomizer);
+				provisioningProvider, listenerContainerCustomizer, sourceCustomizer);
 		binder.setAdminAddresses(
 				this.rabbitBinderConfigurationProperties.getAdminAddresses());
-		binder.setCompressingPostProcessor(gZipPostProcessor());
-		binder.setDecompressingPostProcessor(deCompressingPostProcessor());
+		binder.setCompressingPostProcessor(gZipPostProcessor);
+		binder.setDecompressingPostProcessor(deCompressingPostProcessor);
 		binder.setNodes(this.rabbitBinderConfigurationProperties.getNodes());
 		binder.setExtendedBindingProperties(this.rabbitExtendedBindingProperties);
 		binder.setProducerMessageHandlerCustomizer(producerMessageHandlerCustomizer);
@@ -118,7 +120,7 @@ public class RabbitMessageChannelBinderConfiguration {
 	}
 
 	@Bean
-	RabbitExchangeQueueProvisioner provisioningProvider(List<DeclarableCustomizer> customizers) {
-		return new RabbitExchangeQueueProvisioner(this.rabbitConnectionFactory, customizers);
+	RabbitExchangeQueueProvisioner provisioningProvider(List<DeclarableCustomizer> declarableCustomizers) {
+		return new RabbitExchangeQueueProvisioner(this.rabbitConnectionFactory, declarableCustomizers);
 	}
 }
