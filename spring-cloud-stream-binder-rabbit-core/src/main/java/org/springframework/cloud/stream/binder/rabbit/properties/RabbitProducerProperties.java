@@ -242,12 +242,12 @@ public class RabbitProducerProperties extends RabbitCommonProperties {
 		this.delayExpression = delayExpression;
 	}
 
-    public Expression getRoutingKeyExpression() {
-        return Optional.ofNullable(this.routingKeyExpression)
-                .orElseGet(() -> Optional.ofNullable(this.routingKey)
-                        .map(LiteralExpression::new)
-                        .orElse(null));
-    }
+	public Expression getRoutingKeyExpression() {
+		return Optional.ofNullable(this.routingKeyExpression)
+				.orElseGet(() -> Optional.ofNullable(this.routingKey)
+						.map(LiteralExpression::new)
+						.orElse(null));
+	}
 
 	public void setRoutingKeyExpression(Expression routingKeyExpression) {
 		this.routingKeyExpression = routingKeyExpression;
