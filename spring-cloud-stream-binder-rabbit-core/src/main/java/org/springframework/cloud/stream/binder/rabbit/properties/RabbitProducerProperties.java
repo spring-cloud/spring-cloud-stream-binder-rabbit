@@ -16,6 +16,8 @@
 
 package org.springframework.cloud.stream.binder.rabbit.properties;
 
+import java.util.Optional;
+
 import jakarta.validation.constraints.Min;
 
 import org.springframework.amqp.core.MessageDeliveryMode;
@@ -23,8 +25,6 @@ import org.springframework.expression.Expression;
 import org.springframework.expression.common.LiteralExpression;
 import org.springframework.util.Assert;
 
-import javax.validation.constraints.Min;
-import java.util.Optional;
 
 
 /**
