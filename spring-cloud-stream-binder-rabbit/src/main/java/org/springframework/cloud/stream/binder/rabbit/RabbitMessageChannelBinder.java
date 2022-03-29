@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2019 the original author or authors.
+ * Copyright 2013-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -134,6 +134,7 @@ import org.springframework.util.StringUtils;
  * @author Artem Bilan
  * @author Soby Chacko
  * @author Oleg Zhurakousky
+ * @author Christian Tzolov
  */
 // @checkstyle:off
 public class RabbitMessageChannelBinder extends
@@ -277,10 +278,14 @@ public class RabbitMessageChannelBinder extends
 		}
 	}
 
+	/**
+	 * Get the underlying {@link ConnectionFactory} instance to 
+	 * allow manually altering the connection lifecycle.
+	 */
 	public ConnectionFactory getConnectionFactory() {
 		return this.connectionFactory;
 	}
-	
+
 	@Override
 	public RabbitConsumerProperties getExtendedConsumerProperties(String channelName) {
 		return this.extendedBindingProperties.getExtendedConsumerProperties(channelName);
