@@ -277,6 +277,10 @@ public class RabbitMessageChannelBinder extends
 		}
 	}
 
+	public ConnectionFactory getConnectionFactory() {
+		return this.connectionFactory;
+	}
+	
 	@Override
 	public RabbitConsumerProperties getExtendedConsumerProperties(String channelName) {
 		return this.extendedBindingProperties.getExtendedConsumerProperties(channelName);
