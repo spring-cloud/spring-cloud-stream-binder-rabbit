@@ -18,6 +18,11 @@ image::https://badges.gitter.im/spring-cloud/spring-cloud-stream-binder-rabbit.s
 
 // ======================================================================================
 
+== ANNOUNCEMENT
+
+**IMPORTANT: This repository is now migrated as part of core Spring Cloud Stream - https://github.com/spring-cloud/spring-cloud-stream.
+Please create new issues over at the core repository.**
+
 //= Overview
 [partintro]
 --
